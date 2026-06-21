@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <EditText
+        android:id="@+id/editTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Numele Task-ului"
+        android:inputType="textCapSentences"
+        android:textSize="18sp"
+        android:layout_marginBottom="16dp"/>
+
+    <RadioGroup
+        android:id="@+id/radioGroupType"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/radioOneTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="O singură dată"
+            android:checked="true"/>
+
+        <RadioButton
+            android:id="@+id/radioDaily"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Zilnic (la o oră fixă)"/>
+
+        <RadioButton
+            android:id="@+id/radioCooldown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cooldown (Temporizator)"/>
+    </RadioGroup>
+
+    <LinearLayout
+        android:id="@+id/layoutResetTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ora de resetare: "/>
+        <Button android:id="@+id/btnPickResetTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00:00" style="?android:attr/spinnerStyle"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layoutCooldownTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Timp Cooldown (ore): "/>
+        <EditText android:id="@+id/editCooldownHours" android:layout_width="80dp" android:layout_height="wrap_content" android:inputType="number" android:text="24" android:gravity="center" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <Switch
+        android:id="@+id/switchReminder"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Activează Notificări"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:id="@+id/layoutReminderTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ora notificării: "/>
+        <Button android:id="@+id/btnPickReminderTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="20:00" style="?android:attr/spinnerStyle"/>
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#CCCCCC" android:layout_marginTop="8dp" android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Subtask-uri (Opțional):"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:id="@+id/layoutSubtasksContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <EditText
+            android:id="@+id/editSubtaskName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Nume subtask..."
+            android:inputType="textCapSentences"/>
+        <Button
+            android:id="@+id/btnAddSubtask"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Adaugă"/>
+    </LinearLayout>
+    <TextView
+        android:id="@+id/txtReminderInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ℹ️ Notificarea va apărea automat la finalizarea timpului."
+        android:textColor="#757575"
+        android:paddingBottom="8dp"
+        android:visibility="gone"/>
+</LinearLayout>
