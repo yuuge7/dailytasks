@@ -8,7 +8,7 @@ import androidx.room.TypeConverters;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Task.class, TaskHistory.class}, version = 5, exportSchema = false)
+@Database(entities = {Task.class, TaskHistory.class}, version = 6, exportSchema = false)
 @TypeConverters({Converters.class}) // SPUNEM BAZEI DE DATE SĂ FOLOSEASCĂ CONVERTORUL
 public abstract class AppDatabase extends RoomDatabase {
 
@@ -50,11 +50,19 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // MIGRAREA 5 -> 6 (Pentru repeatDays)
+    static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE tasks ADD COLUMN repeatDays INTEGER NOT NULL DEFAULT 1");
+        }
+    };
+
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "daily_focus_db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .allowMainThreadQueries()
                     .build();
         }

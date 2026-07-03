@@ -72,7 +72,11 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
         StringBuilder details = new StringBuilder();
 
         if (task.isDaily) {
-            details.append("Zilnic (Reset ").append(String.format("%02d:%02d", task.resetHour, task.resetMinute)).append(")");
+            if (task.repeatDays > 1) {
+                details.append("La ").append(task.repeatDays).append(" zile (Reset ").append(String.format("%02d:%02d", task.resetHour, task.resetMinute)).append(")");
+            } else {
+                details.append("Zilnic (Reset ").append(String.format("%02d:%02d", task.resetHour, task.resetMinute)).append(")");
+            }
         } else if (task.isCooldown24h) {
             if (task.isCompleted) {
                 long resetTimeMillis = task.lastCompletionTimestamp + ((long) task.cooldownHours * 60 * 60 * 1000L);

@@ -25,25 +25,32 @@ public class TaskHelper {
             boolean needsUpdate = false;
 
             if (task.isDaily) {
-                cal.setTimeInMillis(now);
+                cal.setTimeInMillis(task.lastCompletionTimestamp);
                 cal.set(Calendar.HOUR_OF_DAY, task.resetHour);
                 cal.set(Calendar.MINUTE, task.resetMinute);
                 cal.set(Calendar.SECOND, 0);
                 cal.set(Calendar.MILLISECOND, 0);
 
-                long lastResetTime = cal.getTimeInMillis();
-                if (lastResetTime > now) {
-                    lastResetTime -= (24 * 60 * 60 * 1000L);
+                long resetPointOfDayOfCompletion = cal.getTimeInMillis();
+                long actualResetPoint;
+                if (task.lastCompletionTimestamp < resetPointOfDayOfCompletion) {
+                    actualResetPoint = resetPointOfDayOfCompletion - (24 * 60 * 60 * 1000L);
+                } else {
+                    actualResetPoint = resetPointOfDayOfCompletion;
                 }
 
-                if (task.lastCompletionTimestamp < lastResetTime) {
+                long nextResetTime = actualResetPoint + (task.repeatDays * 24 * 60 * 60 * 1000L);
+
+                if (now >= nextResetTime) {
                     if (task.isCompleted) {
                         task.isCompleted = false;
-                        long previousResetTime = lastResetTime - (24 * 60 * 60 * 1000L);
-                        if (task.lastCompletionTimestamp < previousResetTime) {
+                        // Dacă a trecut mai mult de o perioadă de repetiție fără completare, pierdem streak-ul
+                        long missedDeadline = nextResetTime + (task.repeatDays * 24 * 60 * 60 * 1000L);
+                        if (now > missedDeadline) {
                             task.currentStreak = 0;
                         }
                     } else {
+                        // Dacă task-ul era deja necompletat și a trecut deadline-ul, streak-ul devine 0
                         task.currentStreak = 0;
                     }
 
@@ -53,7 +60,13 @@ public class TaskHelper {
                         }
                     }
 
-                    task.lastCompletionTimestamp = now;
+                    // Ne asigurăm că setăm timestamp-ul la ultimul punct de resetare teoretic
+                    // pentru a păstra cadența corectă
+                    task.lastCompletionTimestamp = actualResetPoint + ((long) ((now - actualResetPoint) / (task.repeatDays * 24 * 60 * 60 * 1000L)) * task.repeatDays * 24 * 60 * 60 * 1000L);
+                    
+                    // Fallback simplu dacă calculul de mai sus e prea complex:
+                    // task.lastCompletionTimestamp = now - (now % (24 * 60 * 60 * 1000L));
+
                     needsUpdate = true;
                 }
 

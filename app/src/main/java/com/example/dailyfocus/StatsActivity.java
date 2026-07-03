@@ -9,6 +9,8 @@ import com.example.dailyfocus.data.Task;
 import com.example.dailyfocus.data.TaskHistory;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Collections;
 import java.util.List;
 
@@ -109,5 +111,34 @@ public class StatsActivity extends AppCompatActivity {
         txtToday.setText("Azi: " + todayCount + " task-uri finalizate");
         txtYesterday.setText("Ieri: " + yesterdayCount + " task-uri finalizate");
         txtThisMonth.setText("Luna aceasta: " + thisMonthCount + " task-uri finalizate");
+
+        // 5. Statistici Totale pe Task (All-Time) - Group by taskName
+        LinearLayout layoutAllTimeStats = findViewById(R.id.layoutAllTimeStats);
+        layoutAllTimeStats.removeAllViews();
+
+        Map<String, Integer> taskCounts = new HashMap<>();
+        for (TaskHistory h : allHistory) {
+            String name = h.taskName != null ? h.taskName : "Task Necunoscut";
+            taskCounts.put(name, taskCounts.getOrDefault(name, 0) + 1);
+        }
+
+        List<Map.Entry<String, Integer>> sortedTaskCounts = new ArrayList<>(taskCounts.entrySet());
+        Collections.sort(sortedTaskCounts, (e1, e2) -> Integer.compare(e2.getValue(), e1.getValue()));
+
+        if (sortedTaskCounts.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("Nu există date istorice încă.");
+            empty.setTextSize(14);
+            empty.setTextColor(0xFF757575);
+            layoutAllTimeStats.addView(empty);
+        } else {
+            for (Map.Entry<String, Integer> entry : sortedTaskCounts) {
+                TextView tv = new TextView(this);
+                tv.setText("📌 " + entry.getKey() + ": " + entry.getValue() + " finalizări");
+                tv.setTextSize(16);
+                tv.setPadding(0, 8, 0, 8);
+                layoutAllTimeStats.addView(tv);
+            }
+        }
     }
 }

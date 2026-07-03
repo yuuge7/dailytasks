@@ -19,7 +19,15 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import android.widget.Toast;
+import com.example.dailyfocus.utils.TaskHelper;
+
 public class TaskDetailsActivity extends AppCompatActivity {
+    private Task task;
+    private AppDatabase db;
+    private HistoryAdapter adapter;
+    private List<HistoryItem> historyList = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,22 +36,39 @@ public class TaskDetailsActivity extends AppCompatActivity {
         int taskId = getIntent().getIntExtra("TASK_ID", -1);
         if (taskId == -1) { finish(); return; }
 
-        AppDatabase db = AppDatabase.getInstance(this);
-        Task task = db.taskDao().getTaskById(taskId);
+        db = AppDatabase.getInstance(this);
+        task = db.taskDao().getTaskById(taskId);
 
         TextView title = findViewById(R.id.detailTitle);
         title.setText(task.title);
 
         RecyclerView recyclerView = findViewById(R.id.historyRecyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new HistoryAdapter(historyList);
+        recyclerView.setAdapter(adapter);
+
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
 
-        List<HistoryItem> historyList = new ArrayList<>();
-        List<TaskHistory> dbHistory = db.taskDao().getHistoryForTask(taskId);
+        Button btnRestore = findViewById(R.id.btnRestore);
+        btnRestore.setOnClickListener(v -> restoreStreak());
+
+        loadHistory();
+    }
+
+    private void loadHistory() {
+        historyList.clear();
+        List<TaskHistory> dbHistory = db.taskDao().getHistoryForTask(task.id);
 
         Calendar cal = Calendar.getInstance();
         cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
+
+        long todayMidnight = cal.getTimeInMillis();
+        cal.add(Calendar.DAY_OF_YEAR, -1);
+        long yesterdayMidnight = cal.getTimeInMillis();
+        cal.add(Calendar.DAY_OF_YEAR, 1); // Reset to today for the loop
+
+        boolean yesterdayCompleted = false;
 
         for (int i = 0; i < 7; i++) {
             long currentDayMillis = cal.getTimeInMillis();
@@ -51,11 +76,32 @@ public class TaskDetailsActivity extends AppCompatActivity {
             for (TaskHistory h : dbHistory) {
                 if (h.dateTimestamp == currentDayMillis) { isDone = true; break; }
             }
+            if (currentDayMillis == yesterdayMidnight && isDone) yesterdayCompleted = true;
+
             SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd MMM", Locale.getDefault());
             historyList.add(new HistoryItem(sdf.format(cal.getTime()), isDone));
             cal.add(Calendar.DAY_OF_YEAR, -1);
         }
-        recyclerView.setAdapter(new HistoryAdapter(historyList));
+        adapter.notifyDataSetChanged();
+
+        // Arătăm butonul de restore doar dacă ieri nu a fost completat ȘI este un task zilnic
+        boolean isStreakTask = task.isDaily || task.isCooldown24h;
+        findViewById(R.id.btnRestore).setVisibility((isStreakTask && !yesterdayCompleted) ? View.VISIBLE : View.GONE);
+    }
+
+    private void restoreStreak() {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
+        long yesterdayMidnight = cal.getTimeInMillis() - (24 * 60 * 60 * 1000L);
+
+        db.taskDao().insertHistory(new TaskHistory(task.id, task.title, yesterdayMidnight));
+        task.currentStreak++;
+        db.taskDao().update(task);
+
+        Toast.makeText(this, "Streak restored for yesterday!", Toast.LENGTH_SHORT).show();
+        loadHistory();
+        TaskHelper.updateWidget(this);
     }
 
     static class HistoryItem {

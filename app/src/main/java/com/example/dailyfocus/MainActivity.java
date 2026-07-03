@@ -280,7 +280,18 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onInfoClick(Task task) {
-                    showEditTaskDialog(task);
+                    String[] options = {"Editează Task", "Vezi Istoric și Detalii"};
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle(task.title)
+                            .setItems(options, (dialog, which) -> {
+                                if (which == 0) {
+                                    showEditTaskDialog(task);
+                                } else {
+                                    Intent intent = new Intent(MainActivity.this, TaskDetailsActivity.class);
+                                    intent.putExtra("TASK_ID", task.id);
+                                    startActivity(intent);
+                                }
+                            }).show();
                 }
 
                 @Override
@@ -427,6 +438,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout layoutReminderTime = view.findViewById(R.id.layoutReminderTime);
         Button btnPickReminderTime = view.findViewById(R.id.btnPickReminderTime);
         TextView txtReminderInfo = view.findViewById(R.id.txtReminderInfo);
+        EditText editRepeatDays = view.findViewById(R.id.editRepeatDays);
 
         List<Subtask> tempSubtasks = new ArrayList<>();
         LinearLayout layoutSubtasksContainer = view.findViewById(R.id.layoutSubtasksContainer);
@@ -492,6 +504,11 @@ public class MainActivity extends AppCompatActivity {
                 boolean isCooldown = radioCooldown.isChecked();
 
                 Task newTask = new Task(title, isDaily, isDaily ? resetHour[0] : 0, isDaily ? resetMinute[0] : 0, isCooldown);
+                if (isDaily) {
+                    try { newTask.repeatDays = Integer.parseInt(editRepeatDays.getText().toString()); }
+                    catch (NumberFormatException e) { newTask.repeatDays = 1; }
+                    if (newTask.repeatDays < 1) newTask.repeatDays = 1;
+                }
                 newTask.orderIndex = adapter != null ? adapter.getItemCount() : 0;
                 newTask.subtasks = tempSubtasks;
                 newTask.lastCompletionTimestamp = System.currentTimeMillis();
@@ -532,6 +549,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout layoutReminderTime = view.findViewById(R.id.layoutReminderTime);
         Button btnPickReminderTime = view.findViewById(R.id.btnPickReminderTime);
         TextView txtReminderInfo = view.findViewById(R.id.txtReminderInfo);
+        EditText editRepeatDays = view.findViewById(R.id.editRepeatDays);
 
         List<Subtask> tempSubtasks = new ArrayList<>();
         if (task.subtasks != null) {
@@ -562,6 +580,7 @@ public class MainActivity extends AppCompatActivity {
             radioDaily.setChecked(true);
             layoutResetTime.setVisibility(View.VISIBLE);
             btnPickResetTime.setText(String.format("%02d:%02d", task.resetHour, task.resetMinute));
+            editRepeatDays.setText(String.valueOf(task.repeatDays));
         } else if (task.isCooldown24h) {
             radioCooldown.setChecked(true);
             layoutCooldownTime.setVisibility(View.VISIBLE);
@@ -607,6 +626,11 @@ public class MainActivity extends AppCompatActivity {
             if (!newTitle.isEmpty()) {
                 task.title = newTitle;
                 task.isDaily = radioDaily.isChecked();
+                if (task.isDaily) {
+                    try { task.repeatDays = Integer.parseInt(editRepeatDays.getText().toString()); }
+                    catch (NumberFormatException e) { task.repeatDays = 1; }
+                    if (task.repeatDays < 1) task.repeatDays = 1;
+                }
                 task.isCooldown24h = radioCooldown.isChecked();
                 task.subtasks = tempSubtasks;
                 task.lastCompletionTimestamp = System.currentTimeMillis();

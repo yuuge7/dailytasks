@@ -26,6 +26,9 @@ public class Task {
     @ColumnInfo(defaultValue = "24")
     public int cooldownHours = 24;
 
+    @ColumnInfo(defaultValue = "1")
+    public int repeatDays = 1;
+
     // Câmp pentru reordonare (Drag & Drop)
     @ColumnInfo(defaultValue = "0")
     public int orderIndex = 0;

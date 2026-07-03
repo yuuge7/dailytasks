@@ -93,7 +93,26 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Luna aceasta: 0"
-            android:textSize="16sp"/>
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0" android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Statistici Totale pe Task (All-Time)"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#9C27B0"
+            android:layout_marginBottom="12dp"/>
+
+        <LinearLayout
+            android:id="@+id/layoutAllTimeStats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp"/>
 
     </LinearLayout>
 </ScrollView>
