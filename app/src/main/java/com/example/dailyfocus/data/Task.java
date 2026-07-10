@@ -33,9 +33,22 @@ public class Task {
     @ColumnInfo(defaultValue = "0")
     public int orderIndex = 0;
 
-    // --- CÂMP NOU PENTRU SUBTASK-URI ---
     @ColumnInfo(defaultValue = "[]")
     public List<Subtask> subtasks;
+
+    // Cea mai lungă serie atinsă vreodată
+    @ColumnInfo(defaultValue = "0")
+    public int bestStreak = 0;
+
+    // Zile active pentru task-uri zilnice: bit 0 = Luni ... bit 6 = Duminică.
+    // 0 = dezactivat (se folosește repeatDays).
+    @ColumnInfo(defaultValue = "0")
+    public int daysOfWeekMask = 0;
+
+    // Începutul perioadei curente (momentul ultimului reset) pentru task-uri zilnice.
+    // 0 = neinițializat; se calculează la prima verificare.
+    @ColumnInfo(defaultValue = "0")
+    public long periodStart = 0;
 
     public Task(String title, boolean isDaily, int resetHour, int resetMinute, boolean isCooldown24h) {
         this.title = title;
@@ -51,6 +64,9 @@ public class Task {
         this.reminderMinute = 0;
         this.cooldownHours = 24;
         this.orderIndex = 0;
+        this.bestStreak = 0;
+        this.daysOfWeekMask = 0;
+        this.periodStart = 0;
 
         // Inițializăm lista goală ca să nu luăm eroare de NullPointerException
         this.subtasks = new ArrayList<>();

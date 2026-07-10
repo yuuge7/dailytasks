@@ -1,7 +1,6 @@
 package com.example.dailyfocus;
 
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -12,23 +11,24 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.dailyfocus.data.AppDatabase;
 import com.example.dailyfocus.data.Task;
+import com.example.dailyfocus.data.TaskRepository;
 import com.example.dailyfocus.utils.TaskHelper;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ReorderActivity extends AppCompatActivity {
 
     private AppDatabase db;
-    private List<Task> tasks;
+    private final List<Task> tasks = new ArrayList<>();
     private ReorderAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_reorder);
-        setTitle("Schimbă Ordinea");
+        setTitle(R.string.reorder_title);
 
         db = AppDatabase.getInstance(this);
-        tasks = db.taskDao().getAllTasksForReordering(); // Aducem lista STRICT după orderIndex
 
         RecyclerView recyclerView = findViewById(R.id.recyclerViewReorder);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -36,7 +36,12 @@ public class ReorderActivity extends AppCompatActivity {
         adapter = new ReorderAdapter();
         recyclerView.setAdapter(adapter);
 
-        // Aici am mutat logica de Drag & Drop
+        TaskRepository.query(() -> db.taskDao().getAllTasksForReordering(), loaded -> {
+            tasks.clear();
+            tasks.addAll(loaded);
+            adapter.notifyDataSetChanged();
+        });
+
         ItemTouchHelper.SimpleCallback itemTouchHelperCallback = new ItemTouchHelper.SimpleCallback(
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
             @Override
@@ -56,12 +61,15 @@ public class ReorderActivity extends AppCompatActivity {
             @Override
             public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
                 super.clearView(recyclerView, viewHolder);
-                // Când lăsăm task-ul, salvăm imediat în baza de date
-                for (int i = 0; i < tasks.size(); i++) {
-                    Task task = tasks.get(i);
-                    task.orderIndex = i;
-                    db.taskDao().update(task);
-                }
+                // Când lăsăm task-ul, salvăm imediat noua ordine
+                final List<Task> snapshot = new ArrayList<>(tasks);
+                TaskRepository.execute(() -> {
+                    for (int i = 0; i < snapshot.size(); i++) {
+                        Task task = snapshot.get(i);
+                        task.orderIndex = i;
+                        db.taskDao().update(task);
+                    }
+                });
             }
         };
 
@@ -69,7 +77,7 @@ public class ReorderActivity extends AppCompatActivity {
 
         findViewById(R.id.btnSaveOrder).setOnClickListener(v -> {
             TaskHelper.updateWidget(this);
-            finish(); // Ne întoarcem pe ecranul principal
+            finish();
         });
     }
 

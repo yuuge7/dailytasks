@@ -5,7 +5,11 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 @Entity(tableName = "task_history",
-        indices = {@Index("taskId")})
+        indices = {
+                @Index("taskId"),
+                // O singură completare per task per zi — previne duplicatele în istoric
+                @Index(value = {"taskId", "dateTimestamp"}, unique = true)
+        })
 public class TaskHistory {
 
     @PrimaryKey(autoGenerate = true)

@@ -4,7 +4,6 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bifă albă, centrată -->
     <path
         android:pathData="M31,55 L47,71 L77,39"
         android:strokeColor="#FFFFFF"

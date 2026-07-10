@@ -4,26 +4,30 @@ DailyFocus is an Android application designed to help users track their daily ta
 
 ## Features
 
-- **Task Management**: Create, edit, and delete tasks.
+- **Task Management**: Create, edit, and delete tasks. Swipe right to complete, swipe left to delete.
 - **Subtasks**: Break down tasks into smaller, manageable steps.
-- **Daily & Cooldown Tasks**: Support for recurring tasks and tasks with a 24-hour cooldown.
-- **Streaks**: Track how many days in a row you've completed your tasks.
-- **History**: View completion history for each task.
-- **Home Screen Widget**: View and toggle tasks directly from your home screen.
+- **Daily, Weekday & Cooldown Tasks**: Recurring tasks every N days, on specific weekdays (e.g. Mon/Wed/Fri), or with a configurable cooldown.
+- **Streaks**: Track how many days in a row you've completed your tasks — current streak plus all-time record per task. A "Restore Streak" button repairs a missed day and recomputes the full streak from history.
+- **History & Heatmap**: Completion history per task and a GitHub-style activity heatmap in Stats.
+- **Reminders**: Exact-alarm notifications with a "Complete" action button; alarms are restored after reboot.
+- **Home Screen Widget**: View and toggle tasks directly from your home screen; follows the system light/dark theme.
+- **Backup**: Manual JSON export/import plus automatic daily backups (last 7 kept) restorable in-app. Streaks are recomputed from history on import.
 - **Confirmation Popups**: Safety checks when unchecking completed tasks from the widget.
 
 ## Technical Stack
 
 - **Language**: Java
-- **Database**: Room Persistence Library (SQLite)
-- **UI**: XML Layouts with Material Design components
+- **Database**: Room Persistence Library (SQLite, schema v7) — all access is async via a single-threaded repository
+- **UI**: XML Layouts with Material Design components, day/night theme-aware
 - **Architecture**: AppWidgetProvider for home screen widget integration
-- **Serialization**: Gson (for subtask storage in Room)
+- **Serialization**: Gson (for subtask storage in Room and JSON backups)
 
 ## Project Structure
 
-- `app/src/main/java/com/example/dailyfocus/data/`: Database entities (`Task`, `Subtask`, `TaskHistory`), DAO, and Database configuration.
+- `app/src/main/java/com/example/dailyfocus/data/`: Database entities (`Task`, `Subtask`, `TaskHistory`), DAO, Database configuration, and `TaskRepository` (async DB access + auto-backup).
+- `app/src/main/java/com/example/dailyfocus/utils/`: `TaskHelper` (single source of truth for resets, completions, streaks, reminders) and `Periods` (period math for reset schedules).
 - `app/src/main/java/com/example/dailyfocus/widget/`: Logic for the `TaskWidgetProvider` and its remote views.
+- `app/src/main/java/com/example/dailyfocus/views/`: `HeatmapView` (custom activity heatmap).
 - `app/src/main/res/layout/`: UI layouts for activities and widget items.
 
 ## Getting Started

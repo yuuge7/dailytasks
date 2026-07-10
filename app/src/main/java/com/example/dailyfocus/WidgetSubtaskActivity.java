@@ -10,9 +10,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.dailyfocus.data.AppDatabase;
 import com.example.dailyfocus.data.Subtask;
 import com.example.dailyfocus.data.Task;
-import com.example.dailyfocus.data.TaskHistory;
+import com.example.dailyfocus.data.TaskRepository;
 import com.example.dailyfocus.utils.TaskHelper;
-import java.util.Calendar;
 
 public class WidgetSubtaskActivity extends AppCompatActivity {
 
@@ -30,14 +29,17 @@ public class WidgetSubtaskActivity extends AppCompatActivity {
         }
 
         db = AppDatabase.getInstance(this);
-        task = db.taskDao().getTaskById(taskId);
+        TaskRepository.query(() -> db.taskDao().getTaskById(taskId), loaded -> {
+            task = loaded;
+            if (task == null || task.isCompleted || task.subtasks == null || task.subtasks.isEmpty()) {
+                finish();
+                return;
+            }
+            buildDialog();
+        });
+    }
 
-        if (task == null || task.isCompleted || task.subtasks == null || task.subtasks.isEmpty()) {
-            finish();
-            return;
-        }
-
-        // Construim layout-ul ferestrei direct din cod
+    private void buildDialog() {
         LinearLayout rootLayout = new LinearLayout(this);
         rootLayout.setOrientation(LinearLayout.VERTICAL);
         rootLayout.setPadding(50, 40, 50, 40);
@@ -46,7 +48,6 @@ public class WidgetSubtaskActivity extends AppCompatActivity {
         LinearLayout checkboxContainer = new LinearLayout(this);
         checkboxContainer.setOrientation(LinearLayout.VERTICAL);
 
-        // Generăm CheckBox-uri pentru fiecare subtask existent
         for (Subtask sub : task.subtasks) {
             CheckBox cb = new CheckBox(this);
             cb.setText(sub.title);
@@ -56,19 +57,21 @@ public class WidgetSubtaskActivity extends AppCompatActivity {
 
             cb.setOnCheckedChangeListener((btn, isChecked) -> {
                 sub.isCompleted = isChecked;
-                task.lastCompletionTimestamp = System.currentTimeMillis();
-                db.taskDao().update(task);
 
-                // Verificăm dacă utilizatorul le-a terminat pe toate manual
                 boolean allDone = true;
                 for (Subtask s : task.subtasks) {
                     if (!s.isCompleted) allDone = false;
                 }
 
-                // Dacă toate subtask-urile sunt gata, completăm automat și task-ul mare
                 if (allDone) {
-                    executeTaskCompletion();
-                    finish();
+                    TaskRepository.executeThen(() -> {
+                        TaskHelper.completeTask(this, task);
+                    }, () -> {
+                        TaskHelper.updateWidget(this);
+                        finish();
+                    });
+                } else {
+                    TaskRepository.execute(() -> db.taskDao().update(task));
                 }
             });
             checkboxContainer.addView(cb);
@@ -78,35 +81,34 @@ public class WidgetSubtaskActivity extends AppCompatActivity {
         rootLayout.addView(scrollView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
-        // Butonul de scurtătură pentru a bifa tot task-ul principal deodată
         Button btnCheckAll = new Button(this);
-        btnCheckAll.setText("Bifează tot Task-ul");
+        btnCheckAll.setText(R.string.widget_check_all);
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         btnParams.setMargins(0, 24, 0, 0);
         btnCheckAll.setLayoutParams(btnParams);
 
-        btnCheckAll.setOnClickListener(v -> {
-            // POP-UP-ul de avertizare cerut
-            new AlertDialog.Builder(this)
-                    .setTitle("Bifezi tot?")
-                    .setMessage("Ești sigur că vrei să bifezi task-ul principal \"" + task.title + "\"? Toate subtask-urile din interior vor fi marcate ca fiind gata.")
-                    .setPositiveButton("Da, bifează tot", (dialog, which) -> {
-                        executeTaskCompletion();
-                        finish();
-                    })
-                    .setNegativeButton("Nu", null)
-                    .show();
-        });
+        btnCheckAll.setOnClickListener(v ->
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.check_all_title)
+                        .setMessage(getString(R.string.widget_check_all_message, task.title))
+                        .setPositiveButton(R.string.check_all_confirm, (dialog, which) ->
+                                TaskRepository.executeThen(() -> {
+                                    TaskHelper.completeTask(this, task);
+                                }, () -> {
+                                    TaskHelper.updateWidget(this);
+                                    finish();
+                                }))
+                        .setNegativeButton(R.string.no, null)
+                        .show());
 
         rootLayout.addView(btnCheckAll);
 
-        // Afișăm tot conținutul sub formă de dialog alert
         new AlertDialog.Builder(this)
                 .setTitle(task.title)
                 .setView(rootLayout)
-                .setPositiveButton("Închide", (dialog, which) -> {
-                    TaskHelper.updateWidget(this); // Ne asigurăm că widget-ul se reîmprospătează la închidere
+                .setPositiveButton(R.string.close, (dialog, which) -> {
+                    TaskHelper.updateWidget(this);
                     finish();
                 })
                 .setOnCancelListener(dialog -> {
@@ -114,27 +116,5 @@ public class WidgetSubtaskActivity extends AppCompatActivity {
                     finish();
                 })
                 .show();
-    }
-
-    private void executeTaskCompletion() {
-        task.isCompleted = true;
-        task.lastCompletionTimestamp = System.currentTimeMillis();
-
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
-        long todayMidnight = cal.getTimeInMillis();
-
-        if (task.isDaily || task.isCooldown24h) {
-            task.currentStreak++;
-            db.taskDao().insertHistory(new TaskHistory(task.id, task.title, todayMidnight));
-        }
-
-        if (task.subtasks != null) {
-            for (Subtask s : task.subtasks) s.isCompleted = true;
-        }
-
-        db.taskDao().update(task);
-        TaskHelper.updateWidget(this);
     }
 }

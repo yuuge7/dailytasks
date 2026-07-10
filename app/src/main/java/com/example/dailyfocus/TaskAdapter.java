@@ -1,5 +1,6 @@
 package com.example.dailyfocus;
 
+import android.content.Context;
 import android.graphics.Paint;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,17 +14,18 @@ import com.example.dailyfocus.data.Subtask;
 import com.example.dailyfocus.data.Task;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder> {
 
     private List<Task> tasks;
-    private OnItemClickListener listener;
+    private final OnItemClickListener listener;
 
     public interface OnItemClickListener {
         void onCheckClick(Task task);
         void onDeleteClick(Task task);
         void onInfoClick(Task task);
-        void onTaskClick(Task task); // NOU: Pentru a deschide lista de subtask-uri
+        void onTaskClick(Task task);
     }
 
     public TaskAdapter(List<Task> tasks, OnItemClickListener listener) {
@@ -36,14 +38,21 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
         notifyDataSetChanged();
     }
 
-    public void moveItem(int fromPosition, int toPosition) {
-        Task item = tasks.remove(fromPosition);
-        tasks.add(toPosition, item);
-        notifyItemMoved(fromPosition, toPosition);
-    }
-
     public List<Task> getTasks() {
         return tasks;
+    }
+
+    /** Etichetă scurtă pentru zilele active, ex: "Lu Mi Vi". */
+    public static String weekdayLabel(Context context, int mask) {
+        String[] abbrev = context.getResources().getStringArray(R.array.day_abbreviations);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 7; i++) {
+            if ((mask & (1 << i)) != 0) {
+                if (sb.length() > 0) sb.append(' ');
+                sb.append(abbrev[i]);
+            }
+        }
+        return sb.toString();
     }
 
     @NonNull
@@ -56,6 +65,7 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
     @Override
     public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
         Task task = tasks.get(position);
+        Context context = holder.itemView.getContext();
 
         holder.title.setText(task.title);
         holder.checkBox.setOnCheckedChangeListener(null);
@@ -70,37 +80,41 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
         }
 
         StringBuilder details = new StringBuilder();
+        String resetTime = String.format(Locale.US, "%02d:%02d", task.resetHour, task.resetMinute);
 
         if (task.isDaily) {
-            if (task.repeatDays > 1) {
-                details.append("La ").append(task.repeatDays).append(" zile (Reset ").append(String.format("%02d:%02d", task.resetHour, task.resetMinute)).append(")");
+            if (task.daysOfWeekMask != 0) {
+                details.append(context.getString(R.string.detail_weekdays,
+                        weekdayLabel(context, task.daysOfWeekMask), resetTime));
+            } else if (task.repeatDays > 1) {
+                details.append(context.getString(R.string.detail_every_n_days, task.repeatDays, resetTime));
             } else {
-                details.append("Zilnic (Reset ").append(String.format("%02d:%02d", task.resetHour, task.resetMinute)).append(")");
+                details.append(context.getString(R.string.detail_daily, resetTime));
             }
         } else if (task.isCooldown24h) {
             if (task.isCompleted) {
                 long resetTimeMillis = task.lastCompletionTimestamp + ((long) task.cooldownHours * 60 * 60 * 1000L);
                 Calendar cal = Calendar.getInstance();
                 cal.setTimeInMillis(resetTimeMillis);
-                details.append("Revine la ").append(String.format("%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE)));
+                details.append(context.getString(R.string.detail_cooldown_back,
+                        String.format(Locale.US, "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))));
             } else {
-                details.append("Disponibil (Cooldown ").append(task.cooldownHours).append("h)");
+                details.append(context.getString(R.string.detail_cooldown_available, task.cooldownHours));
             }
         } else {
-            details.append("O singură dată");
+            details.append(context.getString(R.string.detail_once));
         }
 
-        // --- NOU: Afișăm statusul Subtask-urilor ---
         if (task.subtasks != null && !task.subtasks.isEmpty()) {
             int doneCount = 0;
             for (Subtask s : task.subtasks) {
                 if (s.isCompleted) doneCount++;
             }
-            details.append(" • ").append(doneCount).append("/").append(task.subtasks.size()).append(" Subtask-uri");
+            details.append(context.getString(R.string.detail_subtasks, doneCount, task.subtasks.size()));
         }
 
         if (task.currentStreak > 0 && (task.isDaily || task.isCooldown24h)) {
-            details.append(" • 🔥 ").append(task.currentStreak);
+            details.append(context.getString(R.string.detail_streak, task.currentStreak));
         }
 
         holder.type.setText(details.toString());
@@ -134,7 +148,6 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
             btnInfo = itemView.findViewById(R.id.imgInfo);
             btnDelete = itemView.findViewById(R.id.imgDelete);
 
-            // NOU: Click pe întregul rând deschide meniul de Subtask-uri
             itemView.setOnClickListener(v -> {
                 int position = getAdapterPosition();
                 if (listener != null && position != RecyclerView.NO_POSITION) {

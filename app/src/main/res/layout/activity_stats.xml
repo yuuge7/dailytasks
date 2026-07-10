@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Statistici și Progres"
+            android:text="@string/stats_title"
             android:textSize="28sp"
             android:textStyle="bold"
             android:layout_marginBottom="32dp"/>
@@ -21,7 +21,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Imagine de Ansamblu"
+            android:text="@string/stats_overview"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#3F51B5"
@@ -31,7 +31,7 @@
             android:id="@+id/txtTotalCompletions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Total finalizate: 0"
+            android:text=""
             android:textSize="16sp"
             android:layout_marginBottom="8dp"/>
 
@@ -39,16 +39,40 @@
             android:id="@+id/txtActiveTasks"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Task-uri urmărite: 0"
+            android:text=""
             android:textSize="16sp"
             android:layout_marginBottom="16dp"/>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0" android:layout_marginBottom="24dp"/>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#66888888" android:layout_marginBottom="24dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Top Serii de Foc 🔥"
+            android:text="@string/stats_activity_map"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#4CAF50"
+            android:layout_marginBottom="12dp"/>
+
+        <HorizontalScrollView
+            android:id="@+id/heatmapScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="24dp">
+
+            <com.example.dailyfocus.views.HeatmapView
+                android:id="@+id/heatmapView"
+                android:layout_width="wrap_content"
+                android:layout_height="120dp"/>
+        </HorizontalScrollView>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#66888888" android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/stats_top_streaks"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#FF9800"
@@ -61,12 +85,12 @@
             android:orientation="vertical"
             android:layout_marginBottom="16dp"/>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0" android:layout_marginBottom="24dp"/>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#66888888" android:layout_marginBottom="24dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Activitate Recentă"
+            android:text="@string/stats_recent_activity"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#4CAF50"
@@ -76,7 +100,7 @@
             android:id="@+id/txtToday"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Astăzi: 0"
+            android:text=""
             android:textSize="16sp"
             android:layout_marginBottom="8dp"/>
 
@@ -84,7 +108,7 @@
             android:id="@+id/txtYesterday"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ieri: 0"
+            android:text=""
             android:textSize="16sp"
             android:layout_marginBottom="8dp"/>
 
@@ -92,16 +116,16 @@
             android:id="@+id/txtThisMonth"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Luna aceasta: 0"
+            android:text=""
             android:textSize="16sp"
             android:layout_marginBottom="16dp"/>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0" android:layout_marginBottom="24dp"/>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#66888888" android:layout_marginBottom="24dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Statistici Totale pe Task (All-Time)"
+            android:text="@string/stats_alltime_header"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#9C27B0"

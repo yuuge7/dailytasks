@@ -3,7 +3,6 @@ package com.example.dailyfocus.widget;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.widget.RemoteViews;
@@ -13,9 +12,8 @@ import com.example.dailyfocus.WidgetConfirmActivity;
 import com.example.dailyfocus.WidgetSubtaskActivity;
 import com.example.dailyfocus.data.AppDatabase;
 import com.example.dailyfocus.data.Task;
-import com.example.dailyfocus.data.TaskHistory;
+import com.example.dailyfocus.data.TaskRepository;
 import com.example.dailyfocus.utils.TaskHelper;
-import java.util.Calendar;
 
 public class TaskWidgetProvider extends AppWidgetProvider {
 
@@ -56,47 +54,36 @@ public class TaskWidgetProvider extends AppWidgetProvider {
 
         if (ACTION_TOGGLE_TASK.equals(intent.getAction())) {
             int taskId = intent.getIntExtra(EXTRA_TASK_ID, -1);
-            if (taskId != -1) {
-                new Thread(() -> {
+            if (taskId == -1) return;
+
+            final PendingResult pendingResult = goAsync();
+            TaskRepository.execute(() -> {
+                try {
                     AppDatabase db = AppDatabase.getInstance(context);
                     Task task = db.taskDao().getTaskById(taskId);
+                    if (task == null) return;
 
-                    if (task != null) {
-                        if (task.isCompleted) {
-                            // CAZUL 1: Task completat -> deschide popup confirmare debifare
-                            Intent confirmIntent = new Intent(context, WidgetConfirmActivity.class);
-                            confirmIntent.putExtra("TASK_ID", task.id);
-                            confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            context.startActivity(confirmIntent);
-
-                        } else if (task.subtasks != null && !task.subtasks.isEmpty()) {
-                            // CAZUL 2: Task necompletat dar ARE subtask-uri -> deschide popup-ul de subtask-uri
-                            Intent subtaskIntent = new Intent(context, WidgetSubtaskActivity.class);
-                            subtaskIntent.putExtra("TASK_ID", task.id);
-                            subtaskIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            context.startActivity(subtaskIntent);
-
-                        } else {
-                            // CAZUL 3: Task simplu, fără subtask-uri -> bifează instantaneu
-                            task.isCompleted = true;
-                            task.lastCompletionTimestamp = System.currentTimeMillis();
-
-                            Calendar cal = Calendar.getInstance();
-                            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0);
-                            cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
-                            long todayMidnight = cal.getTimeInMillis();
-
-                            if (task.isDaily || task.isCooldown24h) {
-                                task.currentStreak++;
-                                db.taskDao().insertHistory(new TaskHistory(task.id, task.title, todayMidnight));
-                            }
-
-                            db.taskDao().update(task);
-                            TaskHelper.updateWidget(context);
-                        }
+                    if (task.isCompleted) {
+                        // Task completat -> popup de confirmare pentru debifare
+                        Intent confirmIntent = new Intent(context, WidgetConfirmActivity.class);
+                        confirmIntent.putExtra("TASK_ID", task.id);
+                        confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        context.startActivity(confirmIntent);
+                    } else if (task.subtasks != null && !task.subtasks.isEmpty()) {
+                        // Are subtask-uri -> popup-ul de subtask-uri
+                        Intent subtaskIntent = new Intent(context, WidgetSubtaskActivity.class);
+                        subtaskIntent.putExtra("TASK_ID", task.id);
+                        subtaskIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        context.startActivity(subtaskIntent);
+                    } else {
+                        // Task simplu -> bifează prin logica unică din TaskHelper
+                        TaskHelper.completeTask(context, task);
+                        TaskHelper.updateWidget(context);
                     }
-                }).start();
-            }
+                } finally {
+                    pendingResult.finish();
+                }
+            });
         }
     }
 }

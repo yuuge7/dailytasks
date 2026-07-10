@@ -1,106 +1,330 @@
 package com.example.dailyfocus.utils;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import com.example.dailyfocus.R;
 import com.example.dailyfocus.data.AppDatabase;
 import com.example.dailyfocus.data.Subtask;
 import com.example.dailyfocus.data.Task;
 import com.example.dailyfocus.data.TaskHistory;
+import com.example.dailyfocus.receiver.NotificationReceiver;
 import com.example.dailyfocus.widget.TaskWidgetProvider;
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+/**
+ * Singura sursă de adevăr pentru resetări, completări și streak-uri.
+ * Toate metodele care ating baza de date trebuie apelate de pe un thread de background
+ * (vezi TaskRepository).
+ */
 public class TaskHelper {
 
-    public static void checkAndResetTasks(Context context) {
+    /**
+     * Verifică și resetează task-urile expirate. Întoarce true dacă s-a schimbat ceva.
+     * Reprogramează notificările task-urilor resetate.
+     */
+    public static boolean checkAndResetTasks(Context context) {
         AppDatabase db = AppDatabase.getInstance(context);
         List<Task> tasks = db.taskDao().getAllTasks();
         long now = System.currentTimeMillis();
-        Calendar cal = Calendar.getInstance();
+        boolean anyChanged = false;
 
         for (Task task : tasks) {
-            boolean needsUpdate = false;
+            boolean changed = false;
 
             if (task.isDaily) {
-                cal.setTimeInMillis(task.lastCompletionTimestamp);
-                cal.set(Calendar.HOUR_OF_DAY, task.resetHour);
-                cal.set(Calendar.MINUTE, task.resetMinute);
-                cal.set(Calendar.SECOND, 0);
-                cal.set(Calendar.MILLISECOND, 0);
-
-                long resetPointOfDayOfCompletion = cal.getTimeInMillis();
-                long actualResetPoint;
-                if (task.lastCompletionTimestamp < resetPointOfDayOfCompletion) {
-                    actualResetPoint = resetPointOfDayOfCompletion - (24 * 60 * 60 * 1000L);
-                } else {
-                    actualResetPoint = resetPointOfDayOfCompletion;
-                }
-
-                long nextResetTime = actualResetPoint + (task.repeatDays * 24 * 60 * 60 * 1000L);
-
-                if (now >= nextResetTime) {
-                    if (task.isCompleted) {
-                        task.isCompleted = false;
-                        // Dacă a trecut mai mult de o perioadă de repetiție fără completare, pierdem streak-ul
-                        long missedDeadline = nextResetTime + (task.repeatDays * 24 * 60 * 60 * 1000L);
-                        if (now > missedDeadline) {
-                            task.currentStreak = 0;
-                        }
-                    } else {
-                        // Dacă task-ul era deja necompletat și a trecut deadline-ul, streak-ul devine 0
-                        task.currentStreak = 0;
-                    }
-
-                    if (task.subtasks != null) {
-                        for (Subtask s : task.subtasks) {
-                            s.isCompleted = false;
-                        }
-                    }
-
-                    // Ne asigurăm că setăm timestamp-ul la ultimul punct de resetare teoretic
-                    // pentru a păstra cadența corectă
-                    task.lastCompletionTimestamp = actualResetPoint + ((long) ((now - actualResetPoint) / (task.repeatDays * 24 * 60 * 60 * 1000L)) * task.repeatDays * 24 * 60 * 60 * 1000L);
-                    
-                    // Fallback simplu dacă calculul de mai sus e prea complex:
-                    // task.lastCompletionTimestamp = now - (now % (24 * 60 * 60 * 1000L));
-
-                    needsUpdate = true;
-                }
-
+                changed = rollDailyPeriod(task, now);
             } else if (task.isCooldown24h) {
                 long unlockTime = task.lastCompletionTimestamp + ((long) task.cooldownHours * 60 * 60 * 1000L);
                 if (task.isCompleted && now >= unlockTime) {
                     task.isCompleted = false;
-                    if (task.subtasks != null) {
-                        for (Subtask s : task.subtasks) {
-                            s.isCompleted = false;
-                        }
-                    }
-                    task.lastCompletionTimestamp = now;
-                    needsUpdate = true;
+                    resetSubtasks(task);
+                    changed = true;
                 }
             }
 
-            if (needsUpdate) {
+            if (changed) {
                 db.taskDao().update(task);
+                scheduleTaskNotification(context, task);
+                anyChanged = true;
             }
+        }
+        return anyChanged;
+    }
+
+    private static void resetSubtasks(Task task) {
+        if (task.subtasks != null) {
+            for (Subtask s : task.subtasks) s.isCompleted = false;
         }
     }
 
-    // --- METODA MODIFICATĂ: REPARĂ CORECT SIZCRONIZAREA LISTEI DIN WIDGET ---
+    /**
+     * Avansează perioada task-ului zilnic până la cea curentă, aplicând regulile de
+     * streak. Folosit atât de verificarea periodică cât și de completare, ca o bifare
+     * imediat după miezul perioadei (înainte să ruleze alarma de reset) să nu fie
+     * înregistrată pe perioada veche.
+     */
+    private static boolean rollDailyPeriod(Task task, long now) {
+        boolean hadPeriodStart = task.periodStart != 0;
+        Periods.ensurePeriodStart(task, now);
+        boolean changed = !hadPeriodStart;
+
+        long next = Periods.nextPeriodStart(task, task.periodStart);
+        while (now >= next) {
+            boolean completedInClosingPeriod = task.isCompleted;
+            if (task.isCompleted) {
+                task.isCompleted = false;
+                resetSubtasks(task);
+            }
+            if (!completedInClosingPeriod) {
+                // Perioadă închisă fără completare -> streak pierdut
+                task.currentStreak = 0;
+            }
+            task.periodStart = next;
+            next = Periods.nextPeriodStart(task, task.periodStart);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
+     * Marchează task-ul ca terminat. Incrementează streak-ul o singură dată per perioadă
+     * (indexul unic pe istoric garantează asta chiar și la bifare-debifare repetată).
+     */
+    public static void completeTask(Context context, Task task) {
+        AppDatabase db = AppDatabase.getInstance(context);
+        long now = System.currentTimeMillis();
+
+        // Aliniem perioada înainte de a înregistra completarea
+        if (task.isDaily) rollDailyPeriod(task, now);
+
+        task.isCompleted = true;
+        task.lastCompletionTimestamp = now;
+        if (task.subtasks != null) {
+            for (Subtask s : task.subtasks) s.isCompleted = true;
+        }
+
+        if (task.isDaily || task.isCooldown24h) {
+            long key = Periods.historyKey(task, now);
+            long rowId = db.taskDao().insertHistory(new TaskHistory(task.id, task.title, key));
+            if (rowId != -1) {
+                // Perioada nu era încă înregistrată -> streak crește
+                task.currentStreak++;
+                if (task.currentStreak > task.bestStreak) task.bestStreak = task.currentStreak;
+            }
+        }
+
+        db.taskDao().update(task);
+        scheduleTaskNotification(context, task);
+    }
+
+    /**
+     * Debifează task-ul. Decrementează streak-ul doar dacă exista o completare
+     * înregistrată pentru perioada curentă (altfel debifarea după un reset ar fura un streak).
+     */
+    public static void uncompleteTask(Context context, Task task) {
+        AppDatabase db = AppDatabase.getInstance(context);
+
+        if (task.isDaily || task.isCooldown24h) {
+            // Cheia perioadei în care s-a făcut completarea — calculată ÎNAINTE de a
+            // modifica timestamp-ul, altfel ștergem ziua greșită din istoric.
+            long key = task.isDaily
+                    ? Periods.historyKey(task, task.lastCompletionTimestamp)
+                    : Periods.dayKey(task.lastCompletionTimestamp);
+            int deleted = db.taskDao().deleteHistory(task.id, key);
+            if (deleted > 0 && task.currentStreak > 0) {
+                task.currentStreak--;
+            }
+        }
+
+        task.isCompleted = false;
+        resetSubtasks(task);
+        db.taskDao().update(task);
+        scheduleTaskNotification(context, task);
+    }
+
+    public static void toggleTask(Context context, Task task) {
+        if (task.isCompleted) uncompleteTask(context, task);
+        else completeTask(context, task);
+    }
+
+    /**
+     * Recalculează streak-ul curent și cel mai bun streak din istoric.
+     * Folosit la restaurarea din backup și la butonul "Restore Streak".
+     * Întoarce {streakCurent, streakMaxim}.
+     *
+     * Pentru task-uri cooldown păstrăm semantica existentă: streak-ul este numărul
+     * total de completări (nu se pierde la pauze).
+     */
+    public static int[] recomputeStreaks(Task task, List<TaskHistory> historyAsc, long now) {
+        if (historyAsc == null || historyAsc.isEmpty()) {
+            return new int[]{0, 0};
+        }
+
+        if (task.isCooldown24h && !task.isDaily) {
+            int n = historyAsc.size();
+            return new int[]{n, n};
+        }
+
+        Set<Long> keys = new HashSet<>();
+        for (TaskHistory h : historyAsc) keys.add(h.dateTimestamp);
+
+        Periods.ensurePeriodStart(task, now);
+        long currentKey = Periods.dayKey(task.periodStart);
+
+        // Streak curent: pornim de la perioada curentă; dacă azi nu e încă bifat,
+        // streak-ul rămâne viu dacă perioada anterioară e completată.
+        int current = 0;
+        long cursor = currentKey;
+        if (!keys.contains(cursor)) {
+            cursor = Periods.previousScheduledDayKey(task, cursor);
+        }
+        while (keys.contains(cursor)) {
+            current++;
+            cursor = Periods.previousScheduledDayKey(task, cursor);
+        }
+
+        // Cel mai bun streak: cea mai lungă secvență de zile programate consecutive
+        int best = 0;
+        Set<Long> visited = new HashSet<>();
+        for (long key : keys) {
+            if (visited.contains(key)) continue;
+            // Ne întoarcem la începutul secvenței din care face parte ziua
+            long start = key;
+            while (keys.contains(Periods.previousScheduledDayKey(task, start))) {
+                start = Periods.previousScheduledDayKey(task, start);
+            }
+            int run = 0;
+            long c = start;
+            while (keys.contains(c)) {
+                visited.add(c);
+                run++;
+                c = nextScheduledDayKey(task, c);
+            }
+            if (run > best) best = run;
+        }
+
+        return new int[]{current, Math.max(best, current)};
+    }
+
+    private static long nextScheduledDayKey(Task task, long dayKey) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(dayKey);
+        if (task.daysOfWeekMask != 0) {
+            do {
+                cal.add(Calendar.DAY_OF_YEAR, 1);
+            } while (!Periods.maskHasDay(task.daysOfWeekMask, cal));
+        } else {
+            cal.add(Calendar.DAY_OF_YEAR, Math.max(1, task.repeatDays));
+        }
+        return cal.getTimeInMillis();
+    }
+
+    /**
+     * Rulat după importul unui backup: reconstruiește periodStart și streak-urile
+     * din istoric, ca seria să revină la valoarea reală, nu la 1.
+     */
+    public static void recomputeAllFromHistory(Context context) {
+        AppDatabase db = AppDatabase.getInstance(context);
+        long now = System.currentTimeMillis();
+        for (Task task : db.taskDao().getAllTasks()) {
+            if (!(task.isDaily || task.isCooldown24h)) continue;
+            task.periodStart = 0;
+            Periods.ensurePeriodStart(task, now);
+            List<TaskHistory> history = db.taskDao().getHistoryForTask(task.id);
+            int[] streaks = recomputeStreaks(task, history, now);
+            task.currentStreak = streaks[0];
+            task.bestStreak = Math.max(task.bestStreak, streaks[1]);
+            db.taskDao().update(task);
+        }
+    }
+
+    // --- NOTIFICĂRI ---
+
+    /** Programează (sau anulează) alarma de reminder pentru un task. */
+    public static void scheduleTaskNotification(Context context, Task task) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, NotificationReceiver.class);
+        intent.putExtra(NotificationReceiver.EXTRA_TASK_ID, task.id);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, task.id, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        if (!task.hasReminder) {
+            alarmManager.cancel(pendingIntent);
+            return;
+        }
+
+        long triggerTime;
+        if (task.isCooldown24h) {
+            if (task.isCompleted) {
+                triggerTime = task.lastCompletionTimestamp + ((long) task.cooldownHours * 60 * 60 * 1000L);
+                if (triggerTime < System.currentTimeMillis()) return;
+            } else {
+                alarmManager.cancel(pendingIntent);
+                return;
+            }
+        } else {
+            if (task.isCompleted) {
+                alarmManager.cancel(pendingIntent);
+                return;
+            }
+            Calendar now = Calendar.getInstance();
+            Calendar alarmTime = Calendar.getInstance();
+            alarmTime.set(Calendar.HOUR_OF_DAY, task.reminderHour);
+            alarmTime.set(Calendar.MINUTE, task.reminderMinute);
+            alarmTime.set(Calendar.SECOND, 0);
+            alarmTime.set(Calendar.MILLISECOND, 0);
+            if (!alarmTime.after(now)) alarmTime.add(Calendar.DAY_OF_YEAR, 1);
+            // Cu mască de zile, sărim peste zilele în care task-ul nu e programat
+            if (task.isDaily && task.daysOfWeekMask != 0) {
+                for (int i = 0; i < 7 && !Periods.maskHasDay(task.daysOfWeekMask, alarmTime); i++) {
+                    alarmTime.add(Calendar.DAY_OF_YEAR, 1);
+                }
+            }
+            triggerTime = alarmTime.getTimeInMillis();
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent);
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent);
+                }
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent);
+            }
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Reprogramează toate reminderele (după boot sau import). */
+    public static void rescheduleAllReminders(Context context) {
+        AppDatabase db = AppDatabase.getInstance(context);
+        for (Task task : db.taskDao().getAllTasks()) {
+            if (task.hasReminder) scheduleTaskNotification(context, task);
+        }
+    }
+
+    // --- WIDGET ---
+
     public static void updateWidget(Context context) {
         try {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
             ComponentName thisWidget = new ComponentName(context, TaskWidgetProvider.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
 
-            // LINIA CHEIE: Această comandă invalidează cache-ul listei și o obligă să reîncărce elementele din DB!
+            // Invalidează cache-ul listei și o obligă să reîncarce elementele din DB
             appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widgetListView);
 
-            // Trimitem și update-ul vizual clasic pe ecran pentru restul componentelor
             Intent intent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
             intent.setPackage(context.getPackageName());
@@ -108,12 +332,5 @@ public class TaskHelper {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public static int calculateStreak(List<TaskHistory> history) {
-        if (history == null || history.isEmpty()) {
-            return 0;
-        }
-        return history.size();
     }
 }

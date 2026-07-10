@@ -22,18 +22,18 @@
 
             <TextView
                 android:id="@+id/widgetTitle"
-                android:text="Daily Focus"
+                android:text="@string/app_name"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/widget_text_primary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
 
             <TextView
                 android:id="@+id/widgetDate"
-                android:text="Tasks for today"
+                android:text=""
                 android:textSize="12sp"
-                android:textColor="#B0B0B0"
+                android:textColor="@color/widget_text_secondary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
         </LinearLayout>
@@ -60,8 +60,8 @@
 
     <TextView
         android:id="@+id/empty_view"
-        android:text="Relax! Nimic de făcut."
-        android:textColor="#606060"
+        android:text="@string/widget_empty"
+        android:textColor="@color/widget_text_secondary"
         android:textStyle="italic"
         android:gravity="center"
         android:visibility="gone"

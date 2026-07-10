@@ -18,21 +18,21 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Progres Zilnic"
+            android:text="@string/daily_progress"
             android:textSize="14sp"
             android:textAllCaps="true"
             android:textStyle="bold"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/stats_card_label"
             android:layout_marginBottom="4dp"/>
 
         <TextView
             android:id="@+id/textStats"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="0/0 terminate"
+            android:text="0/0"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF" />
+            android:textColor="@color/text_primary" />
 
         <ProgressBar
             android:id="@+id/progressBar"
@@ -54,7 +54,7 @@
         android:layout_marginEnd="16dp"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="8dp"
-        android:text="Schimbă Ordinea Task-urilor" />
+        android:text="@string/reorder_tasks" />
 
     <LinearLayout
         android:id="@+id/layoutBackup"
@@ -72,7 +72,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:text="Exportă Date" />
+            android:text="@string/export_data" />
 
         <Button
             android:id="@+id/btnImport"
@@ -80,7 +80,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="Importă Date" />
+            android:text="@string/import_data" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -89,14 +89,16 @@
         android:layout_height="match_parent"
         android:layout_below="@id/layoutBackup"
         android:clipToPadding="false"
-        android:paddingBottom="88dp"/> <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/fabAdd"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_alignParentBottom="true"
-    android:layout_alignParentEnd="true"
-    android:layout_margin="24dp"
-    android:src="@android:drawable/ic_input_add"
-    app:tint="@android:color/white"/>
+        android:paddingBottom="88dp"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAdd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="24dp"
+        android:src="@android:drawable/ic_input_add"
+        app:tint="@android:color/white"/>
 
 </RelativeLayout>

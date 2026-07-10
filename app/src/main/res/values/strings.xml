@@ -1,3 +1,135 @@
 <resources>
     <string name="app_name">DailyFocus</string>
+
+    <!-- Generale -->
+    <string name="add">Adaugă</string>
+    <string name="save">Salvează</string>
+    <string name="cancel">Anulează</string>
+    <string name="close">Închide</string>
+    <string name="done">Gata</string>
+    <string name="no">Nu</string>
+    <string name="back">Înapoi</string>
+
+    <!-- Ecranul principal -->
+    <string name="daily_progress">Progres Zilnic</string>
+    <string name="progress_stats">%1$d/%2$d terminate</string>
+    <string name="reorder_tasks">Schimbă Ordinea Task-urilor</string>
+    <string name="export_data">Exportă Date</string>
+    <string name="import_data">Importă Date</string>
+    <string name="edit_task">Editează Task</string>
+    <string name="view_history">Vezi Istoric și Detalii</string>
+    <string name="subtask_bullet">• %1$s</string>
+
+    <!-- Bifare / ștergere -->
+    <string name="check_all_title">Bifezi tot?</string>
+    <string name="check_all_message">Acest task are subtask-uri neterminate. Ești sigur că vrei să-l bifezi și să le marchezi pe toate ca fiind gata?</string>
+    <string name="check_all_confirm">Da, bifează tot</string>
+    <string name="delete_title">Șterge Task</string>
+    <string name="delete_message">Ești sigur că vrei să ștergi \"%1$s\"?</string>
+    <string name="delete_confirm">Da, șterge</string>
+
+    <!-- Export / Import -->
+    <string name="export_success">Date exportate cu succes!</string>
+    <string name="export_error">Eroare la export.</string>
+    <string name="import_title">Import Date</string>
+    <string name="import_message">Ești sigur că vrei să imporți datele? Acest lucru va șterge sarcinile curente și istoricul actual. Streak-urile vor fi recalculate din istoric.</string>
+    <string name="import_confirm">Da, Importă</string>
+    <string name="import_success">Import realizat cu succes!</string>
+    <string name="import_error">Eroare la import: fișier invalid.</string>
+    <string name="import_source_file">Alege fișier…</string>
+    <string name="import_source_auto">Backup automat</string>
+    <string name="no_auto_backups">Nu există încă backupuri automate.</string>
+
+    <!-- Detalii task în listă -->
+    <string name="detail_daily">Zilnic (Reset %1$s)</string>
+    <string name="detail_every_n_days">La %1$d zile (Reset %2$s)</string>
+    <string name="detail_weekdays">%1$s (Reset %2$s)</string>
+    <string name="detail_cooldown_back">Revine la %1$s</string>
+    <string name="detail_cooldown_available">Disponibil (Cooldown %1$dh)</string>
+    <string name="detail_once">O singură dată</string>
+    <string name="detail_subtasks">" • %1$d/%2$d Subtask-uri"</string>
+    <string name="detail_streak">" • 🔥 %1$d"</string>
+
+    <!-- Dialog adăugare / editare -->
+    <string name="task_name_hint">Numele Task-ului</string>
+    <string name="type_once">O singură dată</string>
+    <string name="type_daily">Zilnic (la o oră fixă)</string>
+    <string name="type_cooldown">Cooldown (Temporizator)</string>
+    <string name="repeat_every">Repetă la fiecare </string>
+    <string name="repeat_days_suffix">" zile"</string>
+    <string name="weekdays_label">Sau doar în zilele:</string>
+    <string name="reset_time_label">Ora de resetare: </string>
+    <string name="cooldown_hours_label">Timp Cooldown (ore): </string>
+    <string name="enable_notifications">Activează Notificări</string>
+    <string name="notification_time_label">Ora notificării: </string>
+    <string name="reminder_info">ℹ️ Notificarea va apărea automat la finalizarea timpului.</string>
+    <string name="subtasks_optional">Subtask-uri (Opțional):</string>
+    <string name="subtask_name_hint">Nume subtask…</string>
+
+    <!-- Detalii task / istoric -->
+    <string name="history_recent">Istoric Recent (Ultimele 7 zile)</string>
+    <string name="history_done">COMPLETAT</string>
+    <string name="history_missed">NEFĂCUT</string>
+    <string name="detail_streaks">🔥 Serie curentă: %1$d  •  🏆 Record: %2$d</string>
+    <string name="restore_streak">Restaurează Streak-ul</string>
+    <string name="restore_success">Streak restaurat: 🔥 %1$d</string>
+
+    <!-- Statistici -->
+    <string name="stats_title">Statistici și Progres</string>
+    <string name="stats_overview">Imagine de Ansamblu</string>
+    <string name="stats_total_completions">Total task-uri finalizate vreodată: %1$d</string>
+    <string name="stats_active_tasks">Task-uri urmărite în prezent: %1$d</string>
+    <string name="stats_activity_map">Harta Activității</string>
+    <string name="stats_top_streaks">Top Serii de Foc 🔥</string>
+    <string name="stats_no_streaks">Nu ai nicio serie activă momentan. Menține-te constant pentru a construi serii!</string>
+    <string name="stats_streak_row">🔥 %1$d zile — %2$s (record: %3$d)</string>
+    <string name="stats_recent_activity">Activitate Recentă</string>
+    <string name="stats_today">Azi: %1$d task-uri finalizate</string>
+    <string name="stats_yesterday">Ieri: %1$d task-uri finalizate</string>
+    <string name="stats_this_month">Luna aceasta: %1$d task-uri finalizate</string>
+    <string name="stats_alltime_header">Statistici Totale pe Task (All-Time)</string>
+    <string name="stats_alltime_row">📌 %1$s: %2$d finalizări</string>
+    <string name="stats_no_history">Nu există date istorice încă.</string>
+    <string name="stats_unknown_task">Task Necunoscut</string>
+
+    <!-- Reordonare -->
+    <string name="reorder_title">Schimbă Ordinea</string>
+    <string name="save_order">Salvează Ordinea</string>
+
+    <!-- Widget -->
+    <string name="widget_empty">Relax! Nimic de făcut.</string>
+    <string name="widget_reset_in">Reset în: %1$dh %2$02dm</string>
+    <string name="widget_reset_soon">Se resetează curând…</string>
+    <string name="widget_uncheck_title">Anulare Task</string>
+    <string name="widget_uncheck_message">Ești sigur că vrei să debifezi task-ul \"%1$s\"?\n(Vei pierde progresul înregistrat astăzi).</string>
+    <string name="widget_uncheck_confirm">Da, debifează</string>
+    <string name="widget_check_all">Bifează tot Task-ul</string>
+    <string name="widget_check_all_message">Ești sigur că vrei să bifezi task-ul principal \"%1$s\"? Toate subtask-urile din interior vor fi marcate ca fiind gata.</string>
+
+    <!-- Notificări -->
+    <string name="notif_reminder_title">🔔 Reminder: %1$s</string>
+    <string name="notif_reminder_body">Nu uita să îți termini task-ul pe azi!</string>
+    <string name="notif_cooldown_title">✅ %1$s este disponibil!</string>
+    <string name="notif_cooldown_body">Au trecut %1$dh. Poți realiza task-ul din nou.</string>
+    <string name="notif_action_complete">Bifează</string>
+
+    <!-- Zilele săptămânii (Luni primul, aliniat cu daysOfWeekMask bit 0) -->
+    <string-array name="day_abbreviations">
+        <item>Lu</item>
+        <item>Ma</item>
+        <item>Mi</item>
+        <item>Jo</item>
+        <item>Vi</item>
+        <item>Sâ</item>
+        <item>Du</item>
+    </string-array>
+    <string-array name="heatmap_day_letters">
+        <item>L</item>
+        <item>M</item>
+        <item>M</item>
+        <item>J</item>
+        <item>V</item>
+        <item>S</item>
+        <item>D</item>
+    </string-array>
 </resources>

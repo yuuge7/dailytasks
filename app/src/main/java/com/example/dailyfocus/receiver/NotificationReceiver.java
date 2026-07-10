@@ -12,50 +12,68 @@ import com.example.dailyfocus.MainActivity;
 import com.example.dailyfocus.R;
 import com.example.dailyfocus.data.AppDatabase;
 import com.example.dailyfocus.data.Task;
+import com.example.dailyfocus.data.TaskRepository;
+import com.example.dailyfocus.utils.TaskHelper;
 
 public class NotificationReceiver extends BroadcastReceiver {
 
     public static final String CHANNEL_ID = "daily_focus_reminders";
     public static final String EXTRA_TASK_ID = "extra_task_id";
+    public static final String ACTION_COMPLETE_TASK = "com.example.dailyfocus.ACTION_COMPLETE_FROM_NOTIFICATION";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         int taskId = intent.getIntExtra(EXTRA_TASK_ID, -1);
         if (taskId == -1) return;
 
-        AppDatabase db = AppDatabase.getInstance(context);
-        Task task = db.taskDao().getTaskById(taskId);
-        if (task == null || !task.hasReminder) return;
+        final PendingResult pendingResult = goAsync();
+        final boolean isCompleteAction = ACTION_COMPLETE_TASK.equals(intent.getAction());
 
-        // --- LOGICA DE TRIMITERE ---
-        boolean shouldNotify = false;
-        String notifTitle = task.title;
-        String notifBody = "";
+        TaskRepository.execute(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(context);
+                Task task = db.taskDao().getTaskById(taskId);
+                if (task == null) return;
 
-        if (task.isCooldown24h) {
-            // La Cooldown, notificăm când se resetează.
-            // Chiar dacă în DB apare încă "completed", alarma a sunat fix la 24h.
-            // Deci e momentul să anunțăm resetarea.
-            shouldNotify = true;
-            notifTitle = "✅ " + task.title + " este disponibil!";
-            notifBody = "Au trecut 24h. Poți realiza task-ul din nou.";
+                if (isCompleteAction) {
+                    // Butonul "Bifează" din notificare
+                    if (!task.isCompleted) {
+                        TaskHelper.completeTask(context, task);
+                        TaskHelper.updateWidget(context);
+                    }
+                    NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                    nm.cancel(task.id);
+                    return;
+                }
 
-            // Opțional: Putem chiar reseta task-ul aici în DB, dar TaskHelper o va face oricum la deschidere.
-        } else {
-            // La task-uri normale, notificăm doar dacă NU sunt făcute
-            if (!task.isCompleted) {
-                shouldNotify = true;
-                notifTitle = "🔔 Reminder: " + task.title;
-                notifBody = "Nu uita să îți termini task-ul pe azi!";
+                // Alarma de reminder
+                if (!task.hasReminder) return;
+
+                if (task.isCooldown24h) {
+                    // La cooldown notificăm când task-ul redevine disponibil
+                    TaskHelper.checkAndResetTasks(context);
+                    Task fresh = db.taskDao().getTaskById(taskId);
+                    if (fresh != null) task = fresh;
+                    showNotification(context, task,
+                            context.getString(R.string.notif_cooldown_title, task.title),
+                            context.getString(R.string.notif_cooldown_body, task.cooldownHours),
+                            !task.isCompleted);
+                    TaskHelper.updateWidget(context);
+                } else if (!task.isCompleted) {
+                    showNotification(context, task,
+                            context.getString(R.string.notif_reminder_title, task.title),
+                            context.getString(R.string.notif_reminder_body),
+                            true);
+                    // Reprogramăm reminderul pentru următoarea zi programată
+                    TaskHelper.scheduleTaskNotification(context, task);
+                }
+            } finally {
+                pendingResult.finish();
             }
-        }
-
-        if (shouldNotify) {
-            showNotification(context, task, notifTitle, notifBody);
-        }
+        });
     }
 
-    private void showNotification(Context context, Task task, String title, String body) {
+    private void showNotification(Context context, Task task, String title, String body, boolean withCompleteAction) {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -66,7 +84,6 @@ public class NotificationReceiver extends BroadcastReceiver {
         }
 
         Intent appIntent = new Intent(context, MainActivity.class);
-        // Când dăm click, deschidem aplicația
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context, task.id + 1000, appIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -77,6 +94,18 @@ public class NotificationReceiver extends BroadcastReceiver {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true);
+
+        if (withCompleteAction) {
+            // Buton "Bifează" direct din notificare, fără a deschide aplicația
+            Intent completeIntent = new Intent(context, NotificationReceiver.class);
+            completeIntent.setAction(ACTION_COMPLETE_TASK);
+            completeIntent.putExtra(EXTRA_TASK_ID, task.id);
+            PendingIntent completePending = PendingIntent.getBroadcast(
+                    context, task.id + 2000, completeIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            builder.addAction(android.R.drawable.checkbox_on_background,
+                    context.getString(R.string.notif_action_complete), completePending);
+        }
 
         notificationManager.notify(task.id, builder.build());
     }

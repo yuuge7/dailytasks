@@ -8,7 +8,7 @@ import androidx.room.TypeConverters;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Task.class, TaskHistory.class}, version = 6, exportSchema = false)
+@Database(entities = {Task.class, TaskHistory.class}, version = 7, exportSchema = false)
 @TypeConverters({Converters.class}) // SPUNEM BAZEI DE DATE SĂ FOLOSEASCĂ CONVERTORUL
 public abstract class AppDatabase extends RoomDatabase {
 
@@ -58,12 +58,26 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // MIGRAREA 6 -> 7 (bestStreak, zile active, periodStart + index unic pe istoric)
+    static final Migration MIGRATION_6_7 = new Migration(6, 7) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE tasks ADD COLUMN bestStreak INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("ALTER TABLE tasks ADD COLUMN daysOfWeekMask INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("ALTER TABLE tasks ADD COLUMN periodStart INTEGER NOT NULL DEFAULT 0");
+            // Pornim bestStreak de la streak-ul curent
+            database.execSQL("UPDATE tasks SET bestStreak = currentStreak WHERE currentStreak > bestStreak");
+            // Curățăm duplicatele din istoric înainte de a crea indexul unic
+            database.execSQL("DELETE FROM task_history WHERE id NOT IN (SELECT MIN(id) FROM task_history GROUP BY taskId, dateTimestamp)");
+            database.execSQL("CREATE UNIQUE INDEX index_task_history_taskId_dateTimestamp ON task_history(taskId, dateTimestamp)");
+        }
+    };
+
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "daily_focus_db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
-                    .allowMainThreadQueries()
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build();
         }
         return instance;

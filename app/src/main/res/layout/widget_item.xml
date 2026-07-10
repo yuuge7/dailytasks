@@ -28,16 +28,16 @@
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:text="Nume Task"/>
+            android:textColor="@color/widget_text_primary"
+            android:text=""/>
 
         <TextView
             android:id="@+id/widgetItemInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="11sp"
-            android:textColor="#808080"
-            android:text="Zilnic"/>
+            android:textColor="@color/widget_text_secondary"
+            android:text=""/>
     </LinearLayout>
 
 </LinearLayout>

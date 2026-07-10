@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -9,7 +13,7 @@
         android:id="@+id/editTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Numele Task-ului"
+        android:hint="@string/task_name_hint"
         android:inputType="textCapSentences"
         android:textSize="18sp"
         android:layout_marginBottom="16dp"/>
@@ -24,20 +28,20 @@
             android:id="@+id/radioOneTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="O singură dată"
+            android:text="@string/type_once"
             android:checked="true"/>
 
         <RadioButton
             android:id="@+id/radioDaily"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Zilnic (la o oră fixă)"/>
+            android:text="@string/type_daily"/>
 
         <RadioButton
             android:id="@+id/radioCooldown"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Cooldown (Temporizator)"/>
+            android:text="@string/type_cooldown"/>
     </RadioGroup>
 
     <LinearLayout
@@ -52,18 +56,50 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Repetă la fiecare "/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/repeat_every"/>
             <EditText android:id="@+id/editRepeatDays" android:layout_width="50dp" android:layout_height="wrap_content" android:inputType="number" android:text="1" android:gravity="center"/>
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" zile"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/repeat_days_suffix"/>
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutWeekdays"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/weekdays_label"/>
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <CheckBox android:id="@+id/chkDay0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lu" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ma" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mi" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Jo" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Vi" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sâ" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/chkDay6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Du" android:textSize="12sp"/>
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:layout_marginTop="8dp">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ora de resetare: "/>
-            <Button android:id="@+id/btnPickResetTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00:00" style="?android:attr/spinnerStyle"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reset_time_label"/>
+            <Button android:id="@+id/btnPickResetTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00:00" android:textColor="@color/text_primary" android:textStyle="bold" android:paddingStart="12dp" android:paddingEnd="12dp" style="?android:attr/spinnerStyle"/>
         </LinearLayout>
     </LinearLayout>
 
@@ -75,7 +111,7 @@
         android:gravity="center_vertical"
         android:visibility="gone"
         android:layout_marginBottom="16dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Timp Cooldown (ore): "/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/cooldown_hours_label"/>
         <EditText android:id="@+id/editCooldownHours" android:layout_width="80dp" android:layout_height="wrap_content" android:inputType="number" android:text="24" android:gravity="center" android:layout_marginStart="8dp"/>
     </LinearLayout>
 
@@ -83,7 +119,7 @@
         android:id="@+id/switchReminder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Activează Notificări"
+        android:text="@string/enable_notifications"
         android:layout_marginBottom="8dp"/>
 
     <LinearLayout
@@ -94,16 +130,16 @@
         android:gravity="center_vertical"
         android:visibility="gone"
         android:layout_marginBottom="8dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ora notificării: "/>
-        <Button android:id="@+id/btnPickReminderTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="20:00" style="?android:attr/spinnerStyle"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/notification_time_label"/>
+        <Button android:id="@+id/btnPickReminderTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="20:00" android:textColor="@color/text_primary" android:textStyle="bold" android:paddingStart="12dp" android:paddingEnd="12dp" style="?android:attr/spinnerStyle"/>
     </LinearLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#CCCCCC" android:layout_marginTop="8dp" android:layout_marginBottom="16dp"/>
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#66888888" android:layout_marginTop="8dp" android:layout_marginBottom="16dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Subtask-uri (Opțional):"
+        android:text="@string/subtasks_optional"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
@@ -124,20 +160,21 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Nume subtask..."
+            android:hint="@string/subtask_name_hint"
             android:inputType="textCapSentences"/>
         <Button
             android:id="@+id/btnAddSubtask"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Adaugă"/>
+            android:text="@string/add"/>
     </LinearLayout>
     <TextView
         android:id="@+id/txtReminderInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ℹ️ Notificarea va apărea automat la finalizarea timpului."
+        android:text="@string/reminder_info"
         android:textColor="#757575"
         android:paddingBottom="8dp"
         android:visibility="gone"/>
 </LinearLayout>
+</ScrollView>

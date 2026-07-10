@@ -2,4 +2,26 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Temă aplicație (light) -->
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#666666</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="stats_card_bg">#FFFFFF</color>
+    <color name="stats_card_label">#888888</color>
+
+    <!-- Widget (light) -->
+    <color name="widget_bg_start">#FFFFFF</color>
+    <color name="widget_bg_end">#F0F0F5</color>
+    <color name="widget_item_bg">#E8E8EF</color>
+    <color name="widget_text_primary">#1A1A1A</color>
+    <color name="widget_text_secondary">#6B7280</color>
+
+    <!-- Heatmap (light, paletă stil GitHub) -->
+    <color name="heatmap_level0">#EBEDF0</color>
+    <color name="heatmap_level1">#9BE9A8</color>
+    <color name="heatmap_level2">#40C463</color>
+    <color name="heatmap_level3">#30A14E</color>
+    <color name="heatmap_level4">#216E39</color>
+    <color name="heatmap_label">#6B7280</color>
 </resources>
