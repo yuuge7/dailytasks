@@ -7,6 +7,8 @@ local.properties
 
 # Log/OS Files
 *.log
+.DS_Store
+Thumbs.db
 
 # Android Studio generated files and folders
 captures/
@@ -14,18 +16,28 @@ captures/
 .cxx/
 *.aab
 *.apk
+*.ap_
+*.dex
 output-metadata.json
 
-# IntelliJ
+# IntelliJ / Android Studio
 *.iml
 .idea/
 misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
-# Keystore files
+# VS Code
+.vscode/
+
+# Signing material — NEVER commit these
 *.jks
 *.keystore
+*.p12
+*.pepk
+keystore.properties
+key.properties
+keystore.base64.txt
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json

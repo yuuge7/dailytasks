@@ -1,0 +1,114 @@
+name: Release
+
+# Publishes a signed APK every time `versionName` in app/build.gradle.kts changes
+# on main. Pushes that leave the version untouched are a no-op, so day-to-day
+# commits never spam the Releases page.
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve app version
+        id: version
+        run: |
+          version="$(sed -n 's/.*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "::error file=app/build.gradle.kts::Could not read versionName"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Detected version $version"
+
+      - name: Check whether this version is already released
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists — skipping."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify signing secrets
+        if: steps.guard.outputs.publish == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$KEYSTORE_BASE64" ] && missing="$missing KEYSTORE_BASE64"
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ] && missing="$missing KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ] && missing="$missing KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing — see README, section 'Release signing'."
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        if: steps.guard.outputs.publish == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Decode keystore
+        if: steps.guard.outputs.publish == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed release APK
+        if: steps.guard.outputs.publish == 'true'
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Stage APK for upload
+        if: steps.guard.outputs.publish == 'true'
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk \
+             "DailyFocus-${{ steps.version.outputs.tag }}.apk"
+
+      - name: Publish GitHub release
+        if: steps.guard.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "DailyFocus-${{ steps.version.outputs.tag }}.apk" \
+            --title "DailyFocus ${{ steps.version.outputs.tag }}" \
+            --target "$GITHUB_SHA" \
+            --generate-notes
+
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
