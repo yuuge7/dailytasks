@@ -49,6 +49,7 @@
     <string name="detail_once">O singură dată</string>
     <string name="detail_subtasks">" • %1$d/%2$d Subtask-uri"</string>
     <string name="detail_streak">" • 🔥 %1$d"</string>
+    <string name="detail_frozen">" • ❄️"</string>
 
     <!-- Dialog adăugare / editare -->
     <string name="task_name_hint">Numele Task-ului</string>
@@ -71,8 +72,24 @@
     <string name="history_done">COMPLETAT</string>
     <string name="history_missed">NEFĂCUT</string>
     <string name="detail_streaks">🔥 Serie curentă: %1$d  •  🏆 Record: %2$d</string>
+    <string name="detail_streaks_frozen">❄️ Serie curentă: %1$d (înghețată)  •  🏆 Record: %2$d</string>
     <string name="restore_streak">Restaurează Streak-ul</string>
     <string name="restore_success">Streak restaurat: 🔥 %1$d</string>
+
+    <!-- Înghețare / resetare serie -->
+    <string name="freeze_streak">❄️ Îngheață Seria</string>
+    <string name="unfreeze_streak">☀️ Dezgheață Seria</string>
+    <string name="freeze_title">Îngheață seria</string>
+    <string name="freeze_message">Cât timp seria e înghețată, zilele ratate la \"%1$s\" nu mai rup lanțul, iar reminderele sunt oprite. Bifările contează normal.</string>
+    <string name="freeze_confirm">Da, îngheață</string>
+    <string name="freeze_success">Serie înghețată ❄️</string>
+    <string name="unfreeze_success">Serie dezghețată ☀️</string>
+    <string name="reset_streak">Resetează Seria</string>
+    <string name="reset_title">Resetează seria</string>
+    <string name="reset_message">Seria curentă pentru \"%1$s\" pornește de la zero. Istoricul și harta activității rămân neatinse.</string>
+    <string name="reset_confirm">Da, resetează</string>
+    <string name="reset_with_best">Și recordul</string>
+    <string name="reset_success">Serie resetată: 🔥 %1$d</string>
 
     <!-- Statistici -->
     <string name="stats_title">Statistici și Progres</string>

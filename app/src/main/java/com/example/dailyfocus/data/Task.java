@@ -50,6 +50,18 @@ public class Task {
     @ColumnInfo(defaultValue = "0")
     public long periodStart = 0;
 
+    // Serie înghețată: perioadele ratate cât timp e activ nu rup lanțul (vezi StreakFreeze).
+    @ColumnInfo(defaultValue = "0")
+    public boolean isFrozen = false;
+
+    // Momentul în care s-a activat înghețarea; perioadele închise înainte nu sunt protejate.
+    @ColumnInfo(defaultValue = "0")
+    public long frozenSince = 0;
+
+    // Ziua ultimei resetări manuale a seriei; istoricul dinaintea ei nu mai intră în streak.
+    @ColumnInfo(defaultValue = "0")
+    public long streakResetAt = 0;
+
     public Task(String title, boolean isDaily, int resetHour, int resetMinute, boolean isCooldown24h) {
         this.title = title;
         this.isDaily = isDaily;
@@ -67,6 +79,9 @@ public class Task {
         this.bestStreak = 0;
         this.daysOfWeekMask = 0;
         this.periodStart = 0;
+        this.isFrozen = false;
+        this.frozenSince = 0;
+        this.streakResetAt = 0;
 
         // Inițializăm lista goală ca să nu luăm eroare de NullPointerException
         this.subtasks = new ArrayList<>();

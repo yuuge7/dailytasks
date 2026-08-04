@@ -55,4 +55,18 @@ public interface TaskDao {
 
     @Query("SELECT * FROM task_history WHERE dateTimestamp >= :since ORDER BY dateTimestamp ASC")
     List<TaskHistory> getHistorySince(long since);
+
+    // --- ÎNGHEȚĂRI DE SERIE ---
+    // IGNORE + index unic (taskId, dayKey): o zi înghețată se înregistrează o singură dată.
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    long insertFreeze(StreakFreeze freeze);
+
+    @Query("SELECT * FROM streak_freezes WHERE taskId = :taskId ORDER BY dayKey ASC")
+    List<StreakFreeze> getFreezesForTask(int taskId);
+
+    @Query("SELECT * FROM streak_freezes ORDER BY dayKey ASC")
+    List<StreakFreeze> getAllFreezes();
+
+    @Query("DELETE FROM streak_freezes WHERE taskId = :taskId AND dayKey < :cutoff")
+    int deleteFreezesBefore(int taskId, long cutoff);
 }

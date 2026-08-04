@@ -260,16 +260,25 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onInfoClick(Task task) {
-                        String[] options = {getString(R.string.edit_task), getString(R.string.view_history)};
+                        List<String> options = new ArrayList<>();
+                        options.add(getString(R.string.edit_task));
+                        options.add(getString(R.string.view_history));
+                        // Îngheţul are sens doar pentru serii care se pot rupe
+                        if (task.isDaily) {
+                            options.add(getString(task.isFrozen
+                                    ? R.string.unfreeze_streak : R.string.freeze_streak));
+                        }
                         new AlertDialog.Builder(MainActivity.this)
                                 .setTitle(task.title)
-                                .setItems(options, (dialog, which) -> {
+                                .setItems(options.toArray(new String[0]), (dialog, which) -> {
                                     if (which == 0) {
                                         showEditTaskDialog(task);
-                                    } else {
+                                    } else if (which == 1) {
                                         Intent intent = new Intent(MainActivity.this, TaskDetailsActivity.class);
                                         intent.putExtra("TASK_ID", task.id);
                                         startActivity(intent);
+                                    } else {
+                                        toggleFreeze(task);
                                     }
                                 }).show();
                     }
@@ -319,6 +328,29 @@ public class MainActivity extends AppCompatActivity {
 
     private void toggleAndReload(Task task) {
         TaskRepository.executeThen(() -> TaskHelper.toggleTask(this, task), () -> {
+            loadTasks();
+            TaskHelper.updateWidget(this);
+        });
+    }
+
+    /** Îngheață seria din meniul rapid (dezghețarea nu are nevoie de confirmare). */
+    private void toggleFreeze(Task task) {
+        if (task.isFrozen) {
+            applyFreeze(task, false);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.freeze_title)
+                .setMessage(getString(R.string.freeze_message, task.title))
+                .setPositiveButton(R.string.freeze_confirm, (dialog, which) -> applyFreeze(task, true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void applyFreeze(Task task, boolean frozen) {
+        TaskRepository.executeThen(() -> TaskHelper.setFrozen(this, task, frozen), () -> {
+            Toast.makeText(this, frozen ? R.string.freeze_success : R.string.unfreeze_success,
+                    Toast.LENGTH_SHORT).show();
             loadTasks();
             TaskHelper.updateWidget(this);
         });

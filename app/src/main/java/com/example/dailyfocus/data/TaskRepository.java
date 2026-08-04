@@ -88,7 +88,8 @@ public class TaskRepository {
         AppDatabase db = AppDatabase.getInstance(context);
         List<Task> tasks = db.taskDao().getAllTasks();
         List<TaskHistory> history = db.taskDao().getAllHistory();
-        return new Gson().toJson(new BackupData(tasks, history));
+        List<StreakFreeze> freezes = db.taskDao().getAllFreezes();
+        return new Gson().toJson(new BackupData(tasks, history, freezes));
     }
 
     /**
@@ -134,6 +135,11 @@ public class TaskRepository {
         if (backup.history != null) {
             for (TaskHistory h : backup.history) {
                 db.taskDao().insertHistory(h);
+            }
+        }
+        if (backup.freezes != null) {
+            for (StreakFreeze f : backup.freezes) {
+                db.taskDao().insertFreeze(f);
             }
         }
     }

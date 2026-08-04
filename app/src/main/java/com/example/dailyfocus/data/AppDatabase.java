@@ -8,7 +8,7 @@ import androidx.room.TypeConverters;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Task.class, TaskHistory.class}, version = 7, exportSchema = false)
+@Database(entities = {Task.class, TaskHistory.class, StreakFreeze.class}, version = 8, exportSchema = false)
 @TypeConverters({Converters.class}) // SPUNEM BAZEI DE DATE SĂ FOLOSEASCĂ CONVERTORUL
 public abstract class AppDatabase extends RoomDatabase {
 
@@ -73,11 +73,24 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // MIGRAREA 7 -> 8 (înghețare serie + resetare manuală serie)
+    static final Migration MIGRATION_7_8 = new Migration(7, 8) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE tasks ADD COLUMN isFrozen INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("ALTER TABLE tasks ADD COLUMN frozenSince INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("ALTER TABLE tasks ADD COLUMN streakResetAt INTEGER NOT NULL DEFAULT 0");
+            database.execSQL("CREATE TABLE IF NOT EXISTS streak_freezes (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, taskId INTEGER NOT NULL, dayKey INTEGER NOT NULL)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_streak_freezes_taskId ON streak_freezes(taskId)");
+            database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_streak_freezes_taskId_dayKey ON streak_freezes(taskId, dayKey)");
+        }
+    };
+
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "daily_focus_db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build();
         }
         return instance;

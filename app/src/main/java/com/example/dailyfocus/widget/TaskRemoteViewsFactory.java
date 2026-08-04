@@ -89,6 +89,10 @@ public class TaskRemoteViewsFactory implements RemoteViewsService.RemoteViewsFac
             details.append(context.getString(R.string.detail_streak, task.currentStreak));
         }
 
+        if (task.isFrozen) {
+            details.append(context.getString(R.string.detail_frozen));
+        }
+
         views.setTextViewText(R.id.widgetItemInfo, details.toString());
 
         // Culori din resurse — urmează automat tema light/dark a sistemului

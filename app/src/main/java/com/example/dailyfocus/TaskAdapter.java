@@ -117,6 +117,10 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
             details.append(context.getString(R.string.detail_streak, task.currentStreak));
         }
 
+        if (task.isFrozen) {
+            details.append(context.getString(R.string.detail_frozen));
+        }
+
         holder.type.setText(details.toString());
 
         if (task.isDaily || task.isCooldown24h) {

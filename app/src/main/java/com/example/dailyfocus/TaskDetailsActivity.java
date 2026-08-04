@@ -1,9 +1,11 @@
 package com.example.dailyfocus;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -11,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.dailyfocus.data.AppDatabase;
+import com.example.dailyfocus.data.StreakFreeze;
 import com.example.dailyfocus.data.Task;
 import com.example.dailyfocus.data.TaskHistory;
 import com.example.dailyfocus.data.TaskRepository;
@@ -50,6 +53,8 @@ public class TaskDetailsActivity extends AppCompatActivity {
 
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
         findViewById(R.id.btnRestore).setOnClickListener(v -> restoreStreak());
+        findViewById(R.id.btnFreeze).setOnClickListener(v -> toggleFreeze());
+        findViewById(R.id.btnResetStreak).setOnClickListener(v -> confirmResetStreak());
 
         TaskRepository.query(() -> db.taskDao().getTaskById(taskId), loaded -> {
             if (loaded == null) {
@@ -66,7 +71,15 @@ public class TaskDetailsActivity extends AppCompatActivity {
 
     private void updateStreakLabel() {
         TextView streaks = findViewById(R.id.detailStreaks);
-        streaks.setText(getString(R.string.detail_streaks, task.currentStreak, task.bestStreak));
+        streaks.setText(getString(task.isFrozen ? R.string.detail_streaks_frozen : R.string.detail_streaks,
+                task.currentStreak, task.bestStreak));
+
+        Button btnFreeze = findViewById(R.id.btnFreeze);
+        btnFreeze.setText(task.isFrozen ? R.string.unfreeze_streak : R.string.freeze_streak);
+        // Îngheţul are sens doar pentru serii care se pot rupe (task-uri zilnice)
+        btnFreeze.setVisibility(task.isDaily ? View.VISIBLE : View.GONE);
+        findViewById(R.id.btnResetStreak).setVisibility(
+                (task.isDaily || task.isCooldown24h) ? View.VISIBLE : View.GONE);
     }
 
     private void loadHistory() {
@@ -121,13 +134,61 @@ public class TaskDetailsActivity extends AppCompatActivity {
             db.taskDao().insertHistory(new TaskHistory(task.id, task.title, missingDay));
 
             List<TaskHistory> history = db.taskDao().getHistoryForTask(task.id);
-            int[] streaks = TaskHelper.recomputeStreaks(task, history, now);
+            List<StreakFreeze> freezes = db.taskDao().getFreezesForTask(task.id);
+            int[] streaks = TaskHelper.recomputeStreaks(task, history, freezes, now);
             task.currentStreak = streaks[0];
             task.bestStreak = Math.max(task.bestStreak, streaks[1]);
             db.taskDao().update(task);
         }, () -> {
             Toast.makeText(this,
                     getString(R.string.restore_success, task.currentStreak), Toast.LENGTH_SHORT).show();
+            updateStreakLabel();
+            loadHistory();
+            TaskHelper.updateWidget(this);
+        });
+    }
+
+    /** Îngheață seria (sau o dezgheață dacă era deja înghețată). */
+    private void toggleFreeze() {
+        if (task == null) return;
+        if (task.isFrozen) {
+            applyFreeze(false);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.freeze_title)
+                .setMessage(getString(R.string.freeze_message, task.title))
+                .setPositiveButton(R.string.freeze_confirm, (d, w) -> applyFreeze(true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void applyFreeze(boolean frozen) {
+        TaskRepository.executeThen(() -> TaskHelper.setFrozen(this, task, frozen), () -> {
+            Toast.makeText(this, frozen ? R.string.freeze_success : R.string.unfreeze_success,
+                    Toast.LENGTH_SHORT).show();
+            updateStreakLabel();
+            loadHistory();
+            TaskHelper.updateWidget(this);
+        });
+    }
+
+    /** Resetare serie: neutru = resetează și recordul all-time. */
+    private void confirmResetStreak() {
+        if (task == null) return;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.reset_title)
+                .setMessage(getString(R.string.reset_message, task.title))
+                .setPositiveButton(R.string.reset_confirm, (d, w) -> applyResetStreak(false))
+                .setNeutralButton(R.string.reset_with_best, (d, w) -> applyResetStreak(true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void applyResetStreak(boolean alsoResetBest) {
+        TaskRepository.executeThen(() -> TaskHelper.resetStreak(this, task, alsoResetBest), () -> {
+            Toast.makeText(this, getString(R.string.reset_success, task.currentStreak),
+                    Toast.LENGTH_SHORT).show();
             updateStreakLabel();
             loadHistory();
             TaskHelper.updateWidget(this);

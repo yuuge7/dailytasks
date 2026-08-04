@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.os.Build;
 import com.example.dailyfocus.R;
 import com.example.dailyfocus.data.AppDatabase;
+import com.example.dailyfocus.data.StreakFreeze;
 import com.example.dailyfocus.data.Subtask;
 import com.example.dailyfocus.data.Task;
 import com.example.dailyfocus.data.TaskHistory;
@@ -40,7 +41,7 @@ public class TaskHelper {
             boolean changed = false;
 
             if (task.isDaily) {
-                changed = rollDailyPeriod(task, now);
+                changed = rollDailyPeriod(db, task, now);
             } else if (task.isCooldown24h) {
                 long unlockTime = task.lastCompletionTimestamp + ((long) task.cooldownHours * 60 * 60 * 1000L);
                 if (task.isCompleted && now >= unlockTime) {
@@ -70,8 +71,11 @@ public class TaskHelper {
      * streak. Folosit atât de verificarea periodică cât și de completare, ca o bifare
      * imediat după miezul perioadei (înainte să ruleze alarma de reset) să nu fie
      * înregistrată pe perioada veche.
+     *
+     * Dacă task-ul e îngheţat, perioadele ratate se salvează ca StreakFreeze în loc să
+     * rupă seria — astfel recalculul din istoric ajunge la același rezultat.
      */
-    private static boolean rollDailyPeriod(Task task, long now) {
+    private static boolean rollDailyPeriod(AppDatabase db, Task task, long now) {
         boolean hadPeriodStart = task.periodStart != 0;
         Periods.ensurePeriodStart(task, now);
         boolean changed = !hadPeriodStart;
@@ -84,14 +88,73 @@ public class TaskHelper {
                 resetSubtasks(task);
             }
             if (!completedInClosingPeriod) {
-                // Perioadă închisă fără completare -> streak pierdut
-                task.currentStreak = 0;
+                // Îngheţul acoperă doar perioade încă deschise când a fost activat,
+                // ca să nu salveze retroactiv zile deja pierdute.
+                if (task.isFrozen && next > task.frozenSince) {
+                    db.taskDao().insertFreeze(new StreakFreeze(task.id, Periods.dayKey(task.periodStart)));
+                } else {
+                    // Perioadă închisă fără completare -> streak pierdut
+                    task.currentStreak = 0;
+                }
             }
             task.periodStart = next;
             next = Periods.nextPeriodStart(task, task.periodStart);
             changed = true;
         }
         return changed;
+    }
+
+    /**
+     * Îngheață / dezgheață seria unui task zilnic. Cât timp e îngheţat, zilele ratate
+     * nu rup lanțul și reminderele sunt oprite; bifările cresc seria ca de obicei.
+     */
+    public static void setFrozen(Context context, Task task, boolean frozen) {
+        AppDatabase db = AppDatabase.getInstance(context);
+        long now = System.currentTimeMillis();
+
+        // Închidem perioadele expirate cu starea de ÎNAINTE de schimbare: înghețarea nu
+        // salvează retroactiv zile deja pierdute, iar dezghețarea nu pierde zilele
+        // acoperite cât timp îngheţul era activ.
+        if (task.isDaily) rollDailyPeriod(db, task, now);
+
+        task.isFrozen = frozen;
+        task.frozenSince = frozen ? now : 0;
+
+        db.taskDao().update(task);
+        scheduleTaskNotification(context, task);
+    }
+
+    /**
+     * Resetează seria: completările dinaintea perioadei curente nu mai intră în streak.
+     * Istoricul și heatmap-ul rămân neatinse — se mută doar punctul de start al lanțului.
+     * Dacă perioada curentă e deja bifată, seria repornește de la 1 (nu de la 0), ca
+     * valoarea afișată să fie aceeași și după un recalcul din istoric.
+     *
+     * @param alsoResetBest true = recordul all-time repornește și el de la seria nouă.
+     */
+    public static void resetStreak(Context context, Task task, boolean alsoResetBest) {
+        AppDatabase db = AppDatabase.getInstance(context);
+        long now = System.currentTimeMillis();
+
+        if (task.isDaily) {
+            rollDailyPeriod(db, task, now);
+            Periods.ensurePeriodStart(task, now);
+            task.streakResetAt = Periods.dayKey(task.periodStart);
+        } else {
+            task.streakResetAt = Periods.dayKey(now);
+        }
+
+        // Înghețurile de dinainte de reset nu mai pot lega nimic
+        db.taskDao().deleteFreezesBefore(task.id, task.streakResetAt);
+
+        int[] streaks = recomputeStreaks(task,
+                db.taskDao().getHistoryForTask(task.id),
+                db.taskDao().getFreezesForTask(task.id), now);
+        task.currentStreak = streaks[0];
+        task.bestStreak = alsoResetBest ? streaks[1] : Math.max(task.bestStreak, streaks[1]);
+
+        db.taskDao().update(task);
+        scheduleTaskNotification(context, task);
     }
 
     /**
@@ -103,7 +166,7 @@ public class TaskHelper {
         long now = System.currentTimeMillis();
 
         // Aliniem perioada înainte de a înregistra completarea
-        if (task.isDaily) rollDailyPeriod(task, now);
+        if (task.isDaily) rollDailyPeriod(db, task, now);
 
         task.isCompleted = true;
         task.lastCompletionTimestamp = now;
@@ -157,55 +220,77 @@ public class TaskHelper {
 
     /**
      * Recalculează streak-ul curent și cel mai bun streak din istoric.
-     * Folosit la restaurarea din backup și la butonul "Restore Streak".
+     * Folosit la restaurarea din backup, la butonul "Restore Streak" și la resetare.
      * Întoarce {streakCurent, streakMaxim}.
+     *
+     * Zilele îngheţate leagă lanțul dar NU se numără — o serie înghețată își păstrează
+     * valoarea, nu crește. Completările dinaintea lui {@code task.streakResetAt} sunt
+     * ignorate (resetare manuală), dar rămân în istoric și în heatmap.
      *
      * Pentru task-uri cooldown păstrăm semantica existentă: streak-ul este numărul
      * total de completări (nu se pierde la pauze).
      */
-    public static int[] recomputeStreaks(Task task, List<TaskHistory> historyAsc, long now) {
-        if (historyAsc == null || historyAsc.isEmpty()) {
-            return new int[]{0, 0};
+    public static int[] recomputeStreaks(Task task, List<TaskHistory> historyAsc,
+                                         List<StreakFreeze> freezes, long now) {
+        // Reset manual: tot ce e mai vechi decât ziua resetării nu mai intră în lanț
+        long cutoff = task.streakResetAt > 0 ? Periods.dayKey(task.streakResetAt) : Long.MIN_VALUE;
+
+        Set<Long> keys = new HashSet<>();
+        if (historyAsc != null) {
+            for (TaskHistory h : historyAsc) {
+                if (h.dateTimestamp >= cutoff) keys.add(h.dateTimestamp);
+            }
         }
 
         if (task.isCooldown24h && !task.isDaily) {
-            int n = historyAsc.size();
+            int n = keys.size();
             return new int[]{n, n};
         }
 
-        Set<Long> keys = new HashSet<>();
-        for (TaskHistory h : historyAsc) keys.add(h.dateTimestamp);
+        if (keys.isEmpty()) {
+            return new int[]{0, 0};
+        }
+
+        Set<Long> frozen = new HashSet<>();
+        if (freezes != null) {
+            for (StreakFreeze f : freezes) {
+                if (f.dayKey >= cutoff) frozen.add(f.dayKey);
+            }
+        }
+        // Lanțul = zile completate + zile acoperite de îngheţ
+        Set<Long> chain = new HashSet<>(keys);
+        chain.addAll(frozen);
 
         Periods.ensurePeriodStart(task, now);
         long currentKey = Periods.dayKey(task.periodStart);
 
         // Streak curent: pornim de la perioada curentă; dacă azi nu e încă bifat,
-        // streak-ul rămâne viu dacă perioada anterioară e completată.
+        // streak-ul rămâne viu dacă perioada anterioară e completată sau înghețată.
         int current = 0;
         long cursor = currentKey;
-        if (!keys.contains(cursor)) {
+        if (!chain.contains(cursor)) {
             cursor = Periods.previousScheduledDayKey(task, cursor);
         }
-        while (keys.contains(cursor)) {
-            current++;
+        while (cursor >= cutoff && chain.contains(cursor)) {
+            if (keys.contains(cursor)) current++;
             cursor = Periods.previousScheduledDayKey(task, cursor);
         }
 
         // Cel mai bun streak: cea mai lungă secvență de zile programate consecutive
         int best = 0;
         Set<Long> visited = new HashSet<>();
-        for (long key : keys) {
+        for (long key : chain) {
             if (visited.contains(key)) continue;
             // Ne întoarcem la începutul secvenței din care face parte ziua
             long start = key;
-            while (keys.contains(Periods.previousScheduledDayKey(task, start))) {
+            while (chain.contains(Periods.previousScheduledDayKey(task, start))) {
                 start = Periods.previousScheduledDayKey(task, start);
             }
             int run = 0;
             long c = start;
-            while (keys.contains(c)) {
+            while (chain.contains(c)) {
                 visited.add(c);
-                run++;
+                if (keys.contains(c)) run++;
                 c = nextScheduledDayKey(task, c);
             }
             if (run > best) best = run;
@@ -239,7 +324,8 @@ public class TaskHelper {
             task.periodStart = 0;
             Periods.ensurePeriodStart(task, now);
             List<TaskHistory> history = db.taskDao().getHistoryForTask(task.id);
-            int[] streaks = recomputeStreaks(task, history, now);
+            List<StreakFreeze> freezes = db.taskDao().getFreezesForTask(task.id);
+            int[] streaks = recomputeStreaks(task, history, freezes, now);
             task.currentStreak = streaks[0];
             task.bestStreak = Math.max(task.bestStreak, streaks[1]);
             db.taskDao().update(task);
@@ -256,7 +342,8 @@ public class TaskHelper {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, task.id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        if (!task.hasReminder) {
+        // Serie înghețată = pauză: nu mai insistăm cu remindere
+        if (!task.hasReminder || task.isFrozen) {
             alarmManager.cancel(pendingIntent);
             return;
         }
