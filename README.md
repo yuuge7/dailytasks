@@ -139,17 +139,38 @@ equivalent environment variables — `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_
 
 ## Release automation
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) runs on every push to `main`:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) runs on every push to `main`
+and **bumps the version itself** — you never edit a version number to cut a release.
 
-1. Reads `versionName` from [`app/build.gradle.kts`](app/build.gradle.kts).
-2. Skips everything if a release for `v<versionName>` already exists — ordinary commits are a
-   no-op, so the Releases page never fills with duplicates.
-3. Otherwise decodes the keystore, builds a signed release APK, and publishes a GitHub release
-   tagged `v1.2` and titled **DailyFocus v1.2**, with auto-generated notes and the APK attached
-   as `DailyFocus-v1.2.apk`.
+The version lives on one line in [`version.properties`](version.properties);
+`app/build.gradle.kts` reads it and derives `versionCode` from it (`1.2` → `10200`,
+`1.3.1` → `10301`), so the code can never collide or go backwards.
 
-**Cutting a release is therefore one edit:** bump `versionName` (and `versionCode`) in
-`app/build.gradle.kts`, push to `main`, and the workflow does the rest.
+On each push the workflow reads the commit subjects since the last release tag and picks a bump
+from their [Conventional Commit](https://www.conventionalcommits.org) prefixes:
+
+| Commits since last release | Bump | Example |
+| --- | --- | --- |
+| `feat:` | minor | `1.2` → `1.3` |
+| `fix:` or `perf:` | patch | `1.2` → `1.2.1` |
+| `feat!:`, `fix!:`, or a `BREAKING CHANGE:` body | major | `1.2` → `2.0` |
+| only `docs:` / `chore:` / `ci:` / `refactor:` / `style:` / `test:` | none — nothing is published |
+
+When a bump is due it builds the signed APK **first**, then commits the new version back to
+`main` as `chore(release): v1.3 [skip ci]`, and publishes a release tagged `v1.3`, titled
+**DailyFocus v1.3**, with auto-generated notes and `DailyFocus-v1.3.apk` attached. A failed
+build therefore never leaves a bumped version behind, and the bump commit cannot re-trigger the
+workflow.
+
+**So: write `feat:` / `fix:` commits, push to `main`, and the release appears.** Commits that
+are only chores still publish nothing, so the Releases page stays clean.
+
+Two escape hatches:
+
+- **Force an exact version** — set it in `version.properties` by hand. If no tag exists for that
+  value yet, it is published as-is instead of being bumped.
+- **Force a bump level** — run the workflow manually from the **Actions** tab
+  (*Run workflow* → choose `patch` / `minor` / `major`), which ignores the commit messages.
 
 ### Required repository secrets
 
@@ -222,8 +243,9 @@ Issues and pull requests are welcome.
 4. Keep database changes migration-safe: bump the version in
    [`AppDatabase`](app/src/main/java/com/example/dailyfocus/data/AppDatabase.java) and add a
    `Migration` alongside the existing ones. Never rely on destructive migration.
-5. Leave `versionName`/`versionCode` alone in feature PRs — version bumps trigger a release and
-   are handled by the maintainer.
+5. Leave `version.properties` alone — the release workflow bumps it automatically. Just write
+   commit messages with the right prefix (`feat:`, `fix:`, `perf:`, or `chore:`/`docs:` for
+   changes that should not ship a release).
 
 ## License
 

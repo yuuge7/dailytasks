@@ -1,13 +1,26 @@
 name: Release
 
-# Publishes a signed APK every time `versionName` in app/build.gradle.kts changes
-# on main. Pushes that leave the version untouched are a no-op, so day-to-day
-# commits never spam the Releases page.
+# Publishes a signed APK whenever main receives commits that deserve a release.
+#
+# The version is NOT maintained by hand: it lives in version.properties and is
+# bumped here from the Conventional Commit prefixes since the last release tag
+# (feat -> minor, fix/perf -> patch, ! or BREAKING CHANGE -> major). Commits that
+# are only docs/chore/ci/refactor/style/test publish nothing, so day-to-day work
+# still never spams the Releases page.
+#
+# Editing version.properties by hand still works: if the version written there has
+# no release tag yet, it is published as-is instead of being bumped.
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Which part to bump (auto = decide from commit messages)'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
 
 permissions:
   contents: write
@@ -24,33 +37,85 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Full history + tags: the bump is derived from the commits since the
+          # last release tag, so a shallow clone would see nothing.
+          fetch-depth: 0
 
-      - name: Resolve app version
+      - name: Decide next version
         id: version
         run: |
-          version="$(sed -n 's/.*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
-          if [ -z "$version" ]; then
-            echo "::error file=app/build.gradle.kts::Could not read versionName"
+          set -euo pipefail
+
+          current="$(sed -n 's/^versionName[[:space:]]*=[[:space:]]*//p' version.properties | head -n 1 | tr -d '[:space:]')"
+          if [ -z "$current" ]; then
+            echo "::error file=version.properties::Could not read versionName"
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-          echo "Detected version $version"
+          echo "Current version: $current"
 
-      - name: Check whether this version is already released
-        id: guard
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
-            echo "Release ${{ steps.version.outputs.tag }} already exists — skipping."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
+          requested="${{ github.event.inputs.bump || 'auto' }}"
+
+          if ! git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            # Someone bumped version.properties by hand — honour it verbatim.
+            echo "No tag v$current yet — publishing that version as-is."
+            level="none"
+            new="$current"
           else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            if [ "$requested" != "auto" ]; then
+              level="$requested"
+              echo "Manual bump requested: $level"
+            else
+              subjects="$(git log --format=%s "v$current..HEAD")"
+              bodies="$(git log --format=%B "v$current..HEAD")"
+
+              level="none"
+              if printf '%s\n' "$bodies"   | grep -qiE '^BREAKING[ -]CHANGE:' \
+              || printf '%s\n' "$subjects" | grep -qE  '^[a-zA-Z]+(\([^)]*\))?!:'; then
+                level="major"
+              elif printf '%s\n' "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
+                level="minor"
+              elif printf '%s\n' "$subjects" | grep -qE '^(fix|perf)(\([^)]*\))?:'; then
+                level="patch"
+              fi
+              echo "Commits since v$current imply: $level"
+            fi
+
+            if [ "$level" = "none" ]; then
+              echo "Nothing release-worthy since v$current — skipping."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            major="$(echo "$current" | cut -d. -f1)"
+            minor="$(echo "$current" | cut -d. -f2)"
+            patch="$(echo "$current" | cut -d. -f3)"
+            major="${major:-0}"; minor="${minor:-0}"; patch="${patch:-0}"
+
+            case "$level" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+            esac
+
+            # Keep the short 1.3 form when there is no patch component
+            if [ "$patch" -eq 0 ]; then new="$major.$minor"; else new="$major.$minor.$patch"; fi
           fi
 
+          if git rev-parse -q --verify "refs/tags/v$new" >/dev/null; then
+            echo "::error::Tag v$new already exists — refusing to overwrite a release."
+            exit 1
+          fi
+
+          echo "Publishing version $new (bump: $level)"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "version=$new" >> "$GITHUB_OUTPUT"
+          echo "tag=v$new" >> "$GITHUB_OUTPUT"
+          echo "changed=$([ "$new" != "$current" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Verify signing secrets
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -67,8 +132,15 @@ jobs:
             exit 1
           fi
 
+      - name: Apply new version
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          sed -i "s/^versionName[[:space:]]*=.*/versionName=${{ steps.version.outputs.version }}/" version.properties
+          grep '^versionName=' version.properties
+
       - name: Set up JDK 17
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -76,13 +148,15 @@ jobs:
           cache: gradle
 
       - name: Decode keystore
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
 
+      # Built before the version commit is pushed: a broken build must not leave a
+      # bumped version behind on main.
       - name: Build signed release APK
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -93,20 +167,39 @@ jobs:
           ./gradlew :app:assembleRelease --no-daemon
 
       - name: Stage APK for upload
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         run: |
           cp app/build/outputs/apk/release/app-release.apk \
              "DailyFocus-${{ steps.version.outputs.tag }}.apk"
 
+      - name: Commit version bump
+        id: commit
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.version.outputs.changed }}" != "true" ]; then
+            echo "Version was set by hand — nothing to commit."
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          # [skip ci] plus the fact that pushes made with GITHUB_TOKEN do not start
+          # new workflow runs — belt and braces against a release loop.
+          git commit -m "chore(release): v${{ steps.version.outputs.version }} [skip ci]"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub release
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.version.outputs.tag }}" \
             "DailyFocus-${{ steps.version.outputs.tag }}.apk" \
             --title "DailyFocus ${{ steps.version.outputs.tag }}" \
-            --target "$GITHUB_SHA" \
+            --target "${{ steps.commit.outputs.sha }}" \
             --generate-notes
 
       - name: Remove decoded keystore

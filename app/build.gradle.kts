@@ -17,6 +17,25 @@ fun signingValue(key: String, envName: String): String? =
 
 val releaseStoreFile: String? = signingValue("storeFile", "KEYSTORE_FILE")
 
+// The version lives in version.properties at the repo root so that CI has exactly
+// one line to rewrite when it bumps a release (see .github/workflows/release.yml).
+val versionProperties = Properties().apply {
+    val file = rootProject.file("version.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+val appVersionName: String = versionProperties.getProperty("versionName")?.trim()
+    ?: error("versionName missing from version.properties")
+
+// versionCode is derived from versionName (1.2 -> 10200, 1.3.1 -> 10301) so it can
+// never collide or go backwards — Android rejects installs whose code decreases.
+val appVersionCode: Int = appVersionName.split(".").let { parts ->
+    val major = parts.getOrNull(0)?.trim()?.toIntOrNull() ?: 0
+    val minor = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0
+    val patch = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 0
+    major * 10000 + minor * 100 + patch
+}
+
 android {
     namespace = "com.example.dailyfocus"
     compileSdk {
@@ -27,10 +46,10 @@ android {
         applicationId = "com.example.dailyfocus"
         minSdk = 24
         targetSdk = 36
-        // versionName drives the release tag and title published by the CI workflow
-        // (.github/workflows/release.yml) — bump it to cut a new release.
-        versionCode = 4
-        versionName = "1.2"
+        // Both come from version.properties, bumped automatically by CI — do not
+        // hardcode them here.
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
