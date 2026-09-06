@@ -42,7 +42,6 @@
 
     <!-- Detalii task în listă -->
     <string name="detail_daily">Zilnic (Reset %1$s)</string>
-    <string name="detail_every_n_days">La %1$d zile (Reset %2$s)</string>
     <string name="detail_weekdays">%1$s (Reset %2$s)</string>
     <string name="detail_cooldown_back">Revine la %1$s</string>
     <string name="detail_cooldown_available">Disponibil (Cooldown %1$dh)</string>
@@ -71,6 +70,7 @@
     <string name="history_recent">Istoric Recent (Ultimele 7 zile)</string>
     <string name="history_done">COMPLETAT</string>
     <string name="history_missed">NEFĂCUT</string>
+    <string name="history_frozen">ÎNGHEȚAT</string>
     <string name="detail_streaks">🔥 Serie curentă: %1$d  •  🏆 Record: %2$d</string>
     <string name="detail_streaks_frozen">❄️ Serie curentă: %1$d (înghețată)  •  🏆 Record: %2$d</string>
     <string name="restore_streak">Restaurează Streak-ul</string>
@@ -94,18 +94,11 @@
     <!-- Statistici -->
     <string name="stats_title">Statistici și Progres</string>
     <string name="stats_overview">Imagine de Ansamblu</string>
-    <string name="stats_total_completions">Total task-uri finalizate vreodată: %1$d</string>
-    <string name="stats_active_tasks">Task-uri urmărite în prezent: %1$d</string>
     <string name="stats_activity_map">Harta Activității</string>
     <string name="stats_top_streaks">Top Serii de Foc 🔥</string>
     <string name="stats_no_streaks">Nu ai nicio serie activă momentan. Menține-te constant pentru a construi serii!</string>
-    <string name="stats_streak_row">🔥 %1$d zile — %2$s (record: %3$d)</string>
     <string name="stats_recent_activity">Activitate Recentă</string>
-    <string name="stats_today">Azi: %1$d task-uri finalizate</string>
-    <string name="stats_yesterday">Ieri: %1$d task-uri finalizate</string>
-    <string name="stats_this_month">Luna aceasta: %1$d task-uri finalizate</string>
     <string name="stats_alltime_header">Statistici Totale pe Task (All-Time)</string>
-    <string name="stats_alltime_row">📌 %1$s: %2$d finalizări</string>
     <string name="stats_no_history">Nu există date istorice încă.</string>
     <string name="stats_unknown_task">Task Necunoscut</string>
 

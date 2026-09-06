@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
@@ -124,11 +125,28 @@ public class TaskRepository {
      * Înlocuiește toate datele cu cele din backup (de apelat pe background).
      * Streak-urile sunt recalculate din istoric de apelant (TaskHelper.recomputeAllFromHistory).
      */
+    /**
+     * Aduce câmpurile de program în intervalele valide. JSON-ul de backup poate fi
+     * editat manual, iar valori absurde (mască fără nicio zi validă, ritm 0) ar
+     * strica matematica de perioade.
+     */
+    private static void sanitize(Task task) {
+        task.daysOfWeekMask &= 0x7F; // doar biții Luni..Duminică
+        if (task.repeatDays < 1) task.repeatDays = 1;
+        if (task.cooldownHours < 1) task.cooldownHours = 24;
+        if (task.resetHour < 0 || task.resetHour > 23) task.resetHour = 0;
+        if (task.resetMinute < 0 || task.resetMinute > 59) task.resetMinute = 0;
+        if (task.reminderHour < 0 || task.reminderHour > 23) task.reminderHour = 20;
+        if (task.reminderMinute < 0 || task.reminderMinute > 59) task.reminderMinute = 0;
+        if (task.subtasks == null) task.subtasks = new ArrayList<>();
+    }
+
     public static void importBackup(Context context, BackupData backup) {
         AppDatabase db = AppDatabase.getInstance(context);
         db.clearAllTables();
         if (backup.tasks != null) {
             for (Task t : backup.tasks) {
+                sanitize(t);
                 db.taskDao().insert(t);
             }
         }

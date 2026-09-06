@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Setul complet de forme românești: one (1), few (0 și 2–19), other (20+, care cere "de").
+  Ex: 1 task, 3 task-uri, 20 de task-uri.
+-->
+<resources>
+    <plurals name="stats_total_completions">
+        <item quantity="one">Total task-uri finalizate vreodată: %1$d</item>
+        <item quantity="few">Total task-uri finalizate vreodată: %1$d</item>
+        <item quantity="other">Total task-uri finalizate vreodată: %1$d</item>
+    </plurals>
+
+    <plurals name="stats_active_tasks">
+        <item quantity="one">Task-uri urmărite în prezent: %1$d</item>
+        <item quantity="few">Task-uri urmărite în prezent: %1$d</item>
+        <item quantity="other">Task-uri urmărite în prezent: %1$d</item>
+    </plurals>
+
+    <plurals name="stats_today">
+        <item quantity="one">Azi: %1$d task finalizat</item>
+        <item quantity="few">Azi: %1$d task-uri finalizate</item>
+        <item quantity="other">Azi: %1$d de task-uri finalizate</item>
+    </plurals>
+
+    <plurals name="stats_yesterday">
+        <item quantity="one">Ieri: %1$d task finalizat</item>
+        <item quantity="few">Ieri: %1$d task-uri finalizate</item>
+        <item quantity="other">Ieri: %1$d de task-uri finalizate</item>
+    </plurals>
+
+    <plurals name="stats_this_month">
+        <item quantity="one">Luna aceasta: %1$d task finalizat</item>
+        <item quantity="few">Luna aceasta: %1$d task-uri finalizate</item>
+        <item quantity="other">Luna aceasta: %1$d de task-uri finalizate</item>
+    </plurals>
+
+    <plurals name="stats_alltime_row">
+        <item quantity="one">📌 %1$s: %2$d finalizare</item>
+        <item quantity="few">📌 %1$s: %2$d finalizări</item>
+        <item quantity="other">📌 %1$s: %2$d de finalizări</item>
+    </plurals>
+
+    <plurals name="stats_streak_row">
+        <item quantity="one">🔥 %1$d zi — %2$s (record: %3$d)</item>
+        <item quantity="few">🔥 %1$d zile — %2$s (record: %3$d)</item>
+        <item quantity="other">🔥 %1$d de zile — %2$s (record: %3$d)</item>
+    </plurals>
+
+    <plurals name="detail_every_n_days">
+        <item quantity="one">Zilnic (Reset %2$s)</item>
+        <item quantity="few">La %1$d zile (Reset %2$s)</item>
+        <item quantity="other">La %1$d de zile (Reset %2$s)</item>
+    </plurals>
+</resources>

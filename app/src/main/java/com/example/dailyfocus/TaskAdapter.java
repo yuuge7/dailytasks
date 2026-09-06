@@ -87,7 +87,8 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
                 details.append(context.getString(R.string.detail_weekdays,
                         weekdayLabel(context, task.daysOfWeekMask), resetTime));
             } else if (task.repeatDays > 1) {
-                details.append(context.getString(R.string.detail_every_n_days, task.repeatDays, resetTime));
+                details.append(context.getResources().getQuantityString(R.plurals.detail_every_n_days,
+                        task.repeatDays, task.repeatDays, resetTime));
             } else {
                 details.append(context.getString(R.string.detail_daily, resetTime));
             }

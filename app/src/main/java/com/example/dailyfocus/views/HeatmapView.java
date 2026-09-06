@@ -110,10 +110,13 @@ public class HeatmapView extends View {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(gridStartDay);
 
+        // Etichetat: după ziua de azi nu mai există nimic de desenat în grilă, deci
+        // ieșim din ambele bucle (un break simplu ar relua degeaba pentru fiecare săptămână)
+        grid:
         for (int week = 0; week < WEEKS; week++) {
             for (int day = 0; day < DAYS; day++) {
                 long key = cal.getTimeInMillis();
-                if (key > todayKey) break;
+                if (key > todayKey) break grid;
 
                 Integer count = counts.get(key);
                 int level;

@@ -88,12 +88,15 @@ public class TaskHelper {
                 resetSubtasks(task);
             }
             if (!completedInClosingPeriod) {
+                long closingDay = Periods.dayKey(task.periodStart);
                 // Îngheţul acoperă doar perioade încă deschise când a fost activat,
                 // ca să nu salveze retroactiv zile deja pierdute.
                 if (task.isFrozen && next > task.frozenSince) {
-                    db.taskDao().insertFreeze(new StreakFreeze(task.id, Periods.dayKey(task.periodStart)));
-                } else {
-                    // Perioadă închisă fără completare -> streak pierdut
+                    db.taskDao().insertFreeze(new StreakFreeze(task.id, closingDay));
+                } else if (db.taskDao().countFreeze(task.id, closingDay) == 0) {
+                    // Perioadă închisă fără completare și fără îngheţ -> streak pierdut.
+                    // Verificăm în DB, nu doar flagul: ziua poate fi deja acoperită de un
+                    // îngheţ salvat la dezgheţare sau adus dintr-un backup.
                     task.currentStreak = 0;
                 }
             }
@@ -116,6 +119,18 @@ public class TaskHelper {
         // salvează retroactiv zile deja pierdute, iar dezghețarea nu pierde zilele
         // acoperite cât timp îngheţul era activ.
         if (task.isDaily) rollDailyPeriod(db, task, now);
+
+        // Dezghețarea nu retrage protecția perioadei în care s-a activat îngheţul:
+        // altfel un îngheţ pornit și oprit în aceeași zi n-ar salva nimic, iar ziua
+        // s-ar pierde la următoarea închidere de perioadă.
+        // Condiția periodStart <= frozenSince distinge cele două cazuri:
+        //  - îngheţ pornit în perioada curentă  -> ziua a fost protejată intenționat;
+        //  - perioadă începută deja sub îngheţ  -> dezghețarea înseamnă "reiau azi",
+        //    deci ziua se bifează normal, fără zi gratis.
+        if (!frozen && task.isDaily && task.isFrozen && !task.isCompleted
+                && task.frozenSince > 0 && task.periodStart <= task.frozenSince) {
+            db.taskDao().insertFreeze(new StreakFreeze(task.id, Periods.dayKey(task.periodStart)));
+        }
 
         task.isFrozen = frozen;
         task.frozenSince = frozen ? now : 0;
@@ -219,6 +234,59 @@ public class TaskHelper {
     }
 
     /**
+     * Ziua pe care butonul "Restaurează Streak-ul" trebuie să o completeze: prima zi
+     * programată neacoperită, mergând înapoi din perioada curentă.
+     *
+     * Zilele îngheţate leagă deja lanțul, deci nu ele l-au rupt — le sărim. Altfel
+     * restaurarea s-ar consuma pe o zi deja acoperită, gaura reală ar rămâne deschisă
+     * și seria nu s-ar mai reconecta niciodată.
+     *
+     * Peste zilele completate NU trecem: dacă prima zi neîngheţată din urmă e bifată,
+     * lanțul e întreg și nu există nimic de restaurat (asta ține restaurarea la o
+     * singură zi de grație, nu la reconstruirea întregului istoric).
+     *
+     * @return cheia zilei de completat, sau 0 dacă nu e nimic de restaurat.
+     */
+    public static long restorableDayKey(Task task, List<TaskHistory> history,
+                                        List<StreakFreeze> freezes, long now) {
+        Set<Long> doneDays = new HashSet<>();
+        if (history != null) {
+            for (TaskHistory h : history) doneDays.add(h.dateTimestamp);
+        }
+
+        if (!task.isDaily) {
+            // Cooldown: seria e numărul total de completări, deci ziua lipsă e pur și simplu ieri.
+            // Scădem o zi calendaristică, nu 24h fixe — la trecerea la ora de vară/iarnă
+            // ziua are 23 sau 25 de ore și cheia nu ar mai pica pe miezul nopții.
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(Periods.dayKey(now));
+            cal.add(Calendar.DAY_OF_YEAR, -1);
+            long yesterday = cal.getTimeInMillis();
+            return doneDays.contains(yesterday) ? 0 : yesterday;
+        }
+
+        Set<Long> frozenDays = new HashSet<>();
+        if (freezes != null) {
+            for (StreakFreeze f : freezes) frozenDays.add(f.dayKey);
+        }
+
+        Periods.ensurePeriodStart(task, now);
+        long cutoff = task.streakResetAt > 0 ? Periods.dayKey(task.streakResetAt) : Long.MIN_VALUE;
+
+        // Perioada curentă e încă deschisă — se bifează normal, nu se restaurează.
+        long cursor = Periods.previousScheduledDayKey(task, Periods.dayKey(task.periodStart));
+
+        // Fiecare pas consumă o zi îngheţată distinctă, deci bucla se oprește garantat.
+        for (int i = 0; i <= frozenDays.size() && cursor >= cutoff; i++) {
+            if (!frozenDays.contains(cursor)) {
+                return doneDays.contains(cursor) ? 0 : cursor;
+            }
+            cursor = Periods.previousScheduledDayKey(task, cursor);
+        }
+        return 0;
+    }
+
+    /**
      * Recalculează streak-ul curent și cel mai bun streak din istoric.
      * Folosit la restaurarea din backup, la butonul "Restore Streak" și la resetare.
      * Întoarce {streakCurent, streakMaxim}.
@@ -300,16 +368,28 @@ public class TaskHelper {
     }
 
     private static long nextScheduledDayKey(Task task, long dayKey) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis(dayKey);
-        if (task.daysOfWeekMask != 0) {
-            do {
-                cal.add(Calendar.DAY_OF_YEAR, 1);
-            } while (!Periods.maskHasDay(task.daysOfWeekMask, cal));
-        } else {
-            cal.add(Calendar.DAY_OF_YEAR, Math.max(1, task.repeatDays));
-        }
-        return cal.getTimeInMillis();
+        return Periods.nextPeriodStart(task, dayKey);
+    }
+
+    /**
+     * Recalculează și salvează seria din istoric pentru un singur task.
+     *
+     * De apelat după o schimbare de program (ritm, zile active, oră de reset):
+     * cheile din istoric au fost scrise pe vechiul ritm, deci lanțul se poate rupe.
+     * Fără asta numărul afișat rămâne cel vechi și se prăbușește abia mai târziu,
+     * la prima restaurare / resetare / import, fără nicio explicație pentru
+     * utilizator.
+     */
+    public static void refreshStreakFromHistory(Context context, Task task) {
+        if (!(task.isDaily || task.isCooldown24h)) return;
+        AppDatabase db = AppDatabase.getInstance(context);
+        long now = System.currentTimeMillis();
+        int[] streaks = recomputeStreaks(task,
+                db.taskDao().getHistoryForTask(task.id),
+                db.taskDao().getFreezesForTask(task.id), now);
+        task.currentStreak = streaks[0];
+        task.bestStreak = Math.max(task.bestStreak, streaks[1]);
+        db.taskDao().update(task);
     }
 
     /**
@@ -374,6 +454,10 @@ public class TaskHelper {
                 for (int i = 0; i < 7 && !Periods.maskHasDay(task.daysOfWeekMask, alarmTime); i++) {
                     alarmTime.add(Calendar.DAY_OF_YEAR, 1);
                 }
+            } else if (task.isDaily && task.repeatDays > 1) {
+                // La "o dată la N zile" reminderul sună doar în ziua în care începe o
+                // perioadă nouă — altfel un task la 3 zile ar suna în fiecare zi.
+                alarmTime = periodStartReminder(task, now, alarmTime);
             }
             triggerTime = alarmTime.getTimeInMillis();
         }
@@ -391,6 +475,38 @@ public class TaskHelper {
         } catch (SecurityException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Primul moment de reminder care cade în ziua de început a unei perioade, cel
+     * puțin la {@code earliest} și strict în viitor. Folosit pentru task-urile
+     * "o dată la N zile", unde zilele din interiorul perioadei nu merită notificare.
+     */
+    private static Calendar periodStartReminder(Task task, Calendar now, Calendar earliest) {
+        Periods.ensurePeriodStart(task, now.getTimeInMillis());
+
+        long periodStart = task.periodStart;
+        long earliestDay = Periods.dayKey(earliest.getTimeInMillis());
+        while (Periods.dayKey(periodStart) < earliestDay) {
+            periodStart = Periods.nextPeriodStart(task, periodStart);
+        }
+
+        Calendar candidate = reminderTimeOn(task, periodStart);
+        if (!candidate.after(now)) {
+            candidate = reminderTimeOn(task, Periods.nextPeriodStart(task, periodStart));
+        }
+        return candidate;
+    }
+
+    /** Ora de reminder în ziua în care începe perioada dată. */
+    private static Calendar reminderTimeOn(Task task, long periodStart) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(Periods.dayKey(periodStart));
+        cal.set(Calendar.HOUR_OF_DAY, task.reminderHour);
+        cal.set(Calendar.MINUTE, task.reminderMinute);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal;
     }
 
     /** Reprogramează toate reminderele (după boot sau import). */

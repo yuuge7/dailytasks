@@ -50,8 +50,10 @@ public class StatsActivity extends AppCompatActivity {
         TextView txtThisMonth = findViewById(R.id.txtThisMonth);
 
         // 1. Imagine de ansamblu
-        txtTotalCompletions.setText(getString(R.string.stats_total_completions, allHistory.size()));
-        txtActiveTasks.setText(getString(R.string.stats_active_tasks, allTasks.size()));
+        txtTotalCompletions.setText(getResources().getQuantityString(
+                R.plurals.stats_total_completions, allHistory.size(), allHistory.size()));
+        txtActiveTasks.setText(getResources().getQuantityString(
+                R.plurals.stats_active_tasks, allTasks.size(), allTasks.size()));
 
         // 2. Heatmap de activitate
         Map<Long, Integer> dayCounts = new HashMap<>();
@@ -85,7 +87,8 @@ public class StatsActivity extends AppCompatActivity {
             for (int i = 0; i < limit; i++) {
                 Task t = streakTasks.get(i);
                 TextView tv = new TextView(this);
-                tv.setText(getString(R.string.stats_streak_row, t.currentStreak, t.title, t.bestStreak));
+                tv.setText(getResources().getQuantityString(R.plurals.stats_streak_row,
+                        t.currentStreak, t.currentStreak, t.title, t.bestStreak));
                 tv.setTextSize(16);
                 tv.setPadding(0, 8, 0, 8);
                 layoutStreaks.addView(tv);
@@ -122,9 +125,11 @@ public class StatsActivity extends AppCompatActivity {
             }
         }
 
-        txtToday.setText(getString(R.string.stats_today, todayCount));
-        txtYesterday.setText(getString(R.string.stats_yesterday, yesterdayCount));
-        txtThisMonth.setText(getString(R.string.stats_this_month, thisMonthCount));
+        txtToday.setText(getResources().getQuantityString(R.plurals.stats_today, todayCount, todayCount));
+        txtYesterday.setText(getResources().getQuantityString(
+                R.plurals.stats_yesterday, yesterdayCount, yesterdayCount));
+        txtThisMonth.setText(getResources().getQuantityString(
+                R.plurals.stats_this_month, thisMonthCount, thisMonthCount));
 
         // 5. Statistici totale pe task (all-time)
         LinearLayout layoutAllTimeStats = findViewById(R.id.layoutAllTimeStats);
@@ -149,7 +154,8 @@ public class StatsActivity extends AppCompatActivity {
         } else {
             for (Map.Entry<String, Integer> entry : sortedTaskCounts) {
                 TextView tv = new TextView(this);
-                tv.setText(getString(R.string.stats_alltime_row, entry.getKey(), entry.getValue()));
+                tv.setText(getResources().getQuantityString(R.plurals.stats_alltime_row,
+                        entry.getValue(), entry.getKey(), entry.getValue()));
                 tv.setTextSize(16);
                 tv.setPadding(0, 8, 0, 8);
                 layoutAllTimeStats.addView(tv);

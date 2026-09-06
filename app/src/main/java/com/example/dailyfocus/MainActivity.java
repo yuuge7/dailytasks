@@ -803,6 +803,11 @@ public class MainActivity extends AppCompatActivity {
                     task.periodStart = Periods.currentPeriodStart(task, System.currentTimeMillis());
                 }
                 db.taskDao().update(task);
+                if (reanchor) {
+                    // Istoricul a fost scris pe vechiul ritm: recalculăm seria acum, ca
+                    // valoarea afișată să corespundă noului program de la bun început.
+                    TaskHelper.refreshStreakFromHistory(this, task);
+                }
                 TaskHelper.scheduleTaskNotification(this, task);
             }, () -> {
                 loadTasks();

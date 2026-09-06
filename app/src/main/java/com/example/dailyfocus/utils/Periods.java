@@ -70,14 +70,24 @@ public final class Periods {
         return cal.getTimeInMillis();
     }
 
+    /**
+     * Avansează o zi în direcția dată până când cade pe o zi activă din mască.
+     * Se oprește după o săptămână întreagă: o mască validă are cel puțin o zi din 7,
+     * iar una coruptă (ex. dintr-un backup editat manual) ar bloca altfel aplicația.
+     */
+    private static void stepToMaskDay(Task task, Calendar cal, int step) {
+        for (int i = 0; i < 7; i++) {
+            cal.add(Calendar.DAY_OF_YEAR, step);
+            if (maskHasDay(task.daysOfWeekMask, cal)) return;
+        }
+    }
+
     /** Următorul punct de reset după periodStart. Avansează întotdeauna cel puțin o zi. */
     public static long nextPeriodStart(Task task, long periodStart) {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(periodStart);
         if (task.daysOfWeekMask != 0) {
-            do {
-                cal.add(Calendar.DAY_OF_YEAR, 1);
-            } while (!maskHasDay(task.daysOfWeekMask, cal));
+            stepToMaskDay(task, cal, 1);
         } else {
             cal.add(Calendar.DAY_OF_YEAR, Math.max(1, task.repeatDays));
         }
@@ -89,9 +99,7 @@ public final class Periods {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(dayKey);
         if (task.daysOfWeekMask != 0) {
-            do {
-                cal.add(Calendar.DAY_OF_YEAR, -1);
-            } while (!maskHasDay(task.daysOfWeekMask, cal));
+            stepToMaskDay(task, cal, -1);
         } else {
             cal.add(Calendar.DAY_OF_YEAR, -Math.max(1, task.repeatDays));
         }

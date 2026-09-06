@@ -5,7 +5,6 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import com.example.dailyfocus.data.TaskRepository;
 import com.example.dailyfocus.utils.TaskHelper;
 
@@ -28,10 +27,20 @@ public class WidgetUpdateReceiver extends BroadcastReceiver {
         });
     }
 
+    /**
+     * Programează următoarea verificare periodică.
+     *
+     * Alarmă INEXACTĂ intenționat: un refresh de widget nu are nevoie de precizie la
+     * secundă, iar alarmele exacte cer SCHEDULE_EXACT_ALARM — permisiune care NU mai
+     * este acordată automat începând cu Android 14. Varianta exactă arunca
+     * SecurityException și omora aplicația la prima pornire după instalare.
+     * setAndAllowWhileIdle nu cere nicio permisiune și trece și prin Doze.
+     */
     public static void scheduleNextAlarm(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, WidgetUpdateReceiver.class);
+        if (alarmManager == null) return;
 
+        Intent intent = new Intent(context, WidgetUpdateReceiver.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -39,12 +48,12 @@ public class WidgetUpdateReceiver extends BroadcastReceiver {
         long interval = 15 * 60 * 1000;
         long triggerAtMillis = System.currentTimeMillis() + interval;
 
-        if (alarmManager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
-            }
+        try {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+        } catch (Exception e) {
+            // Nicio alarmă nu justifică oprirea aplicației — widget-ul se va actualiza
+            // oricum la următoarea deschidere.
+            e.printStackTrace();
         }
     }
 }

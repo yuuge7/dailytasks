@@ -68,7 +68,8 @@ public class TaskRemoteViewsFactory implements RemoteViewsService.RemoteViewsFac
                 details.append(context.getString(R.string.detail_weekdays,
                         TaskAdapter.weekdayLabel(context, task.daysOfWeekMask), timeStr));
             } else if (task.repeatDays > 1) {
-                details.append(context.getString(R.string.detail_every_n_days, task.repeatDays, timeStr));
+                details.append(context.getResources().getQuantityString(R.plurals.detail_every_n_days,
+                        task.repeatDays, task.repeatDays, timeStr));
             } else {
                 details.append(context.getString(R.string.detail_daily, timeStr));
             }

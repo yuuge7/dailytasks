@@ -64,6 +64,10 @@ public interface TaskDao {
     @Query("SELECT * FROM streak_freezes WHERE taskId = :taskId ORDER BY dayKey ASC")
     List<StreakFreeze> getFreezesForTask(int taskId);
 
+    // Ziua e deja acoperită de un îngheţ? (folosit la închiderea unei perioade)
+    @Query("SELECT COUNT(*) FROM streak_freezes WHERE taskId = :taskId AND dayKey = :dayKey")
+    int countFreeze(int taskId, long dayKey);
+
     @Query("SELECT * FROM streak_freezes ORDER BY dayKey ASC")
     List<StreakFreeze> getAllFreezes();
 
